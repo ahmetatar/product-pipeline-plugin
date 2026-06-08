@@ -1,0 +1,51 @@
+name: In-Test (board)
+
+# Runs when CI succeeds on a feat/** branch and moves the story's board item to In-Test. The CI build
+# already verified the change; this stack is HOST-AGNOSTIC, so there is no automatic preview deploy by
+# default. If you run a per-branch preview/staging environment (Vercel preview, Fly staging app, etc.),
+# add the deploy in the USER CUSTOM block below — it runs BEFORE the board move.
+
+on:
+  workflow_run:
+    workflows: ['CI']
+    types: [completed]
+
+permissions:
+  contents: read
+  pull-requests: read
+
+concurrency:
+  group: in-test-${{ github.event.workflow_run.head_branch }}
+  cancel-in-progress: false
+
+jobs:
+  in-test:
+    name: (optional preview) · board → In-Test
+    if: >
+      github.event.workflow_run.conclusion == 'success' &&
+      startsWith(github.event.workflow_run.head_branch, 'feat/')
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      BRANCH: ${{ github.event.workflow_run.head_branch }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.BRANCH }}
+
+      # === USER CUSTOM START ===
+      # OPTIONAL preview/staging deploy of this feat branch. Add your host's setup + deploy here, e.g.:
+      #   - uses: actions/setup-node@v4
+      #     with: { node-version: '<NODE_VERSION>', cache: '<PM_CACHE>' }
+      #   - run: <PM_INSTALL>
+      #   - name: Deploy preview
+      #     run: <your host's preview-deploy command>   # e.g. `vercel deploy` / `flyctl deploy -a <app>-staging`
+      #     env: { <HOST_TOKEN>: ${{ secrets.<HOST_TOKEN> }} }
+      # === USER CUSTOM END ===
+
+      - name: Board → In-Test
+        if: ${{ vars.PROJECT_NUMBER != '' }}
+        env:
+          GH_TOKEN: ${{ secrets.PROJECTS_TOKEN }}
+          PROJECT_NUMBER: ${{ vars.PROJECT_NUMBER }}
+        run: bash .github/scripts/set-project-status.sh In-Test "$BRANCH"

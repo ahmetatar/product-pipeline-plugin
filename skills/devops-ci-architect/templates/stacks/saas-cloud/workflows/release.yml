@@ -1,0 +1,92 @@
+name: Release (build · migrate · deploy)
+
+# Release role: on push to main (i.e. when /story-done squash-merges the PR), build the apps, run DB
+# migrations against production (if configured), then deploy to your host. The host deploy is
+# HOST-AGNOSTIC — it lives in the USER CUSTOM block because the host is chosen per-project by
+# needs/cost. The board → Done move is the deterministic CI backstop for In-Test → Done.
+
+on:
+  push:
+    branches: [main]
+    paths-ignore:
+      - 'docs/**'   # doc-only commits (e.g. board "mark done") must not trigger a deploy
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    name: Build · Migrate · Deploy
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node <NODE_VERSION>
+        uses: actions/setup-node@v4
+        with:
+          node-version: '<NODE_VERSION>'
+          cache: '<PM_CACHE>'
+
+      - name: Install dependencies
+        run: <PM_INSTALL>
+
+      - name: Generate Prisma client (if used)
+        run: |
+          if [ -f apps/api/prisma/schema.prisma ]; then
+            (cd apps/api && npx prisma generate)
+          else
+            echo "No apps/api/prisma/schema.prisma — skipping prisma generate."
+          fi
+
+      - name: Build
+        run: <BUILD_COMMAND>
+
+      - name: Run DB migrations (if configured)
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        # Guarded: runs only when a production DATABASE_URL secret is set AND a Prisma schema exists.
+        # Drizzle users: replace `prisma migrate deploy` with your migrate command.
+        run: |
+          if [ -n "$DATABASE_URL" ] && [ -f apps/api/prisma/schema.prisma ]; then
+            (cd apps/api && npx prisma migrate deploy)
+          else
+            echo "DATABASE_URL unset or no prisma schema — skipping migrations."
+          fi
+
+      # === USER CUSTOM START ===
+      # Deploy to your host. The host is chosen per-project (cost/needs), so wire it here. Examples:
+      #
+      #   # Vercel:
+      #   - name: Deploy to Vercel
+      #     run: npx vercel deploy --prod --token "$VERCEL_TOKEN"
+      #     env: { VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }} }
+      #
+      #   # Fly.io:
+      #   - uses: superfly/flyctl-actions/setup-flyctl@master
+      #   - run: flyctl deploy --remote-only
+      #     env: { FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }} }
+      #
+      #   # Railway / Netlify / AWS / container registry: add the equivalent here.
+      # === USER CUSTOM END ===
+
+      - name: Board → Done
+        if: ${{ vars.PROJECT_NUMBER != '' }}
+        env:
+          GH_TOKEN: ${{ secrets.PROJECTS_TOKEN }}
+          PROJECT_NUMBER: ${{ vars.PROJECT_NUMBER }}
+        # Deterministic board → Done on merge — the CI backstop for the In-Test → Done transition
+        # (mirrors in-test.yml's board step). Resolve the PR whose squash-merge produced this commit,
+        # then its head branch, then reuse set-project-status.sh unchanged: that script finds the
+        # now-merged, branch-deleted PR via `gh pr list --head … --state all` (headRefName is retained).
+        run: |
+          PR=$(gh api "repos/$GITHUB_REPOSITORY/commits/$GITHUB_SHA/pulls" --jq '.[0].number // empty')
+          [ -z "$PR" ] && { echo "No PR for $GITHUB_SHA — skipping board → Done."; exit 0; }
+          BRANCH=$(gh pr view "$PR" --repo "$GITHUB_REPOSITORY" --json headRefName --jq '.headRefName // empty')
+          [ -z "$BRANCH" ] && { echo "No head branch for PR #$PR — skipping board → Done."; exit 0; }
+          bash .github/scripts/set-project-status.sh Done "$BRANCH"

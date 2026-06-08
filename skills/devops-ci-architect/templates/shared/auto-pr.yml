@@ -1,0 +1,43 @@
+name: Auto-PR
+
+# On every push to a feat/** branch: open a PR if none is open yet. That's all — the board is
+# already at In-Progress (dev-story-implementer sets it when it starts the story); CI moves it to
+# In-Test on green. This workflow exists so dev-story-implementer ends at `git push`, not `gh pr
+# create`. Stack-agnostic: no placeholders.
+
+on:
+  push:
+    branches: ['feat/**']
+
+permissions:
+  contents: read
+  pull-requests: write
+
+concurrency:
+  group: auto-pr-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  open-pr:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Open PR if missing
+        env:
+          # Prefer the board PAT (PROJECTS_TOKEN). The default GITHUB_TOKEN is blocked from
+          # opening PRs by the "Allow GitHub Actions to create and approve pull requests" org
+          # setting, AND a GITHUB_TOKEN-authored PR does not get its `Closes #N` linked to the
+          # issue (closingIssuesReferences stays empty) — so the issue neither auto-closes on
+          # merge nor lets in-test.yml find the story to move the board. A PAT-authored PR fixes
+          # both. Falls back to GITHUB_TOKEN for projects with no board automation.
+          GH_TOKEN: ${{ secrets.PROJECTS_TOKEN || secrets.GITHUB_TOKEN }}
+        run: |
+          BRANCH="${GITHUB_REF#refs/heads/}"
+          # gh pr create --fill copies the commit message into the PR body, so `Closes #N`
+          # carries over and the issue auto-closes on merge.
+          gh pr list --head "$BRANCH" --state open --json number --jq '.[0].number' | grep -q . \
+            || gh pr create --fill --base main --head "$BRANCH"

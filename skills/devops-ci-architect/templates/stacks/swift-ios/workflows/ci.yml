@@ -1,0 +1,58 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches:
+      - main
+      - 'feat/**'     # auto-pr.yml opens PRs with GITHUB_TOKEN, which GitHub blocks from
+                      # firing `pull_request` workflows — so we run CI on feat pushes too.
+                      # in-test.yml keys off this run finishing green (workflow_run).
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  validate:
+    name: Lint · Build · Test
+    runs-on: macos-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Select Xcode <XCODE_VERSION>
+        run: sudo xcode-select -s /Applications/Xcode_<XCODE_VERSION>.app/Contents/Developer
+
+      - name: Cache Swift Package Manager
+        uses: actions/cache@v4
+        with:
+          path: |
+            .build
+            ~/Library/Developer/Xcode/DerivedData/**/SourcePackages
+          key: ${{ runner.os }}-spm-${{ hashFiles('**/Package.resolved') }}
+          restore-keys: |
+            ${{ runner.os }}-spm-
+
+      # === USER CUSTOM START ===
+      # Add project-specific setup steps here. The skill preserves anything between these markers on update.
+      # === USER CUSTOM END ===
+
+      - name: Lint
+        run: |
+          if command -v swiftlint > /dev/null 2>&1; then
+            <LINT_COMMAND>
+          else
+            echo "::notice::swiftlint not installed on runner; skipping lint. Install via 'brew install swiftlint' on macos-latest if needed."
+          fi
+
+      - name: Build
+        run: <BUILD_COMMAND>
+
+      - name: Test
+        run: <TEST_COMMAND>

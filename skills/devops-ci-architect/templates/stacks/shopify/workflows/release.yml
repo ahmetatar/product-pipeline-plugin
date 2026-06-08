@@ -1,0 +1,75 @@
+name: Release (Shopify app deploy)
+
+# Release role: on push to main, deploy AND release a new app version to Shopify. The web backend
+# itself (React Router 7 server) is deployed separately to your host — that step is project-specific, so it
+# lives in the USER CUSTOM block (uncomment + fill for your host: Fly.io / Vercel / Railway / …).
+
+on:
+  push:
+    branches: [main]
+    paths-ignore:
+      - 'docs/**'   # doc-only commits (e.g. dev-story-implementer's "mark done") must not deploy
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    name: Deploy · Release app version
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node <NODE_VERSION>
+        uses: actions/setup-node@v4
+        with:
+          node-version: '<NODE_VERSION>'
+          cache: '<PM_CACHE>'
+
+      - name: Install dependencies
+        run: <PM_INSTALL>
+
+      - name: Generate Prisma client
+        run: npx prisma generate
+
+      - name: Build
+        run: <BUILD_COMMAND>
+
+      - name: Deploy & release app version to Shopify
+        env:
+          SHOPIFY_CLI_PARTNERS_TOKEN: ${{ secrets.SHOPIFY_CLI_PARTNERS_TOKEN }}
+        # CI is non-interactive, so the Shopify CLI auto-confirms the deploy — no --force needed.
+        run: npx shopify app deploy
+
+      # === USER CUSTOM START ===
+      # Deploy the React Router 7 web server to your host. Example (Fly.io):
+      #   - name: Deploy web to Fly.io
+      #     uses: superfly/flyctl-actions/setup-flyctl@master
+      #   - run: flyctl deploy --remote-only
+      #     env:
+      #       FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+      # Run DB migrations against the production database as part of this step
+      # (e.g. `npx prisma migrate deploy` with DATABASE_URL set).
+      # === USER CUSTOM END ===
+
+      - name: Board → Done
+        if: ${{ vars.PROJECT_NUMBER != '' }}
+        env:
+          GH_TOKEN: ${{ secrets.PROJECTS_TOKEN }}
+          PROJECT_NUMBER: ${{ vars.PROJECT_NUMBER }}
+        # Deterministic board → Done on merge — the CI backstop for the In-Test → Done transition
+        # (mirrors in-test.yml's board step). Resolve the PR whose squash-merge produced this commit,
+        # then its head branch, then reuse set-project-status.sh unchanged: that script finds the
+        # now-merged, branch-deleted PR via `gh pr list --head … --state all` (headRefName is retained).
+        run: |
+          PR=$(gh api "repos/$GITHUB_REPOSITORY/commits/$GITHUB_SHA/pulls" --jq '.[0].number // empty')
+          [ -z "$PR" ] && { echo "No PR for $GITHUB_SHA — skipping board → Done."; exit 0; }
+          BRANCH=$(gh pr view "$PR" --repo "$GITHUB_REPOSITORY" --json headRefName --jq '.headRefName // empty')
+          [ -z "$BRANCH" ] && { echo "No head branch for PR #$PR — skipping board → Done."; exit 0; }
+          bash .github/scripts/set-project-status.sh Done "$BRANCH"

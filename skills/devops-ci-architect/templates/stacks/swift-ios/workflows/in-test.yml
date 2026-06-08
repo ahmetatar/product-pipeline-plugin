@@ -1,0 +1,118 @@
+name: In-Test (deliver + board)
+
+# Runs when CI succeeds on a feat/** branch. Delivery mode decides what happens BEFORE the board
+# moves to In-Test:
+#   - local-simulator (default): nothing is deployed here — CI already built + verified. Install the
+#     branch on YOUR simulator with `scripts/run-on-sim.sh` (a cloud runner cannot reach a local sim).
+#   - testflight: build signed + upload to TestFlight (fastlane beta, no auto-submit), THEN move board.
+# Default comes from the `IOS_TEST_DELIVERY` repo variable; override per-PR with a `deliver:testflight`
+# or `deliver:local` label on the PR.
+
+on:
+  workflow_run:
+    workflows: ['CI']
+    types: [completed]
+
+permissions:
+  contents: read
+  pull-requests: write   # the testflight job comments the upload notice on the PR
+
+concurrency:
+  group: in-test-${{ github.event.workflow_run.head_branch }}
+  cancel-in-progress: false
+
+jobs:
+  decide:
+    name: Resolve delivery mode
+    if: >
+      github.event.workflow_run.conclusion == 'success' &&
+      startsWith(github.event.workflow_run.head_branch, 'feat/')
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      delivery: ${{ steps.pick.outputs.delivery }}
+    env:
+      GH_TOKEN: ${{ secrets.PROJECTS_TOKEN || secrets.GITHUB_TOKEN }}
+      BRANCH: ${{ github.event.workflow_run.head_branch }}
+    steps:
+      - id: pick
+        run: |
+          DELIVERY="${{ vars.IOS_TEST_DELIVERY }}"
+          [ -z "$DELIVERY" ] && DELIVERY="local-simulator"
+          LABELS=$(gh pr list --repo "$GITHUB_REPOSITORY" --head "$BRANCH" --state all \
+            --json labels --jq '.[0].labels[].name' 2>/dev/null || true)
+          echo "$LABELS" | grep -qx 'deliver:testflight' && DELIVERY=testflight
+          echo "$LABELS" | grep -qx 'deliver:local'      && DELIVERY=local-simulator
+          echo "delivery=$DELIVERY" >> "$GITHUB_OUTPUT"
+          echo "Delivery mode: $DELIVERY"
+
+  testflight:
+    name: Build · Upload to TestFlight
+    needs: decide
+    if: ${{ needs.decide.outputs.delivery == 'testflight' }}
+    runs-on: macos-latest
+    timeout-minutes: 60
+    env:
+      BRANCH: ${{ github.event.workflow_run.head_branch }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.BRANCH }}
+          fetch-depth: 0   # full history so the commit-count build number is correct
+
+      - name: Select Xcode <XCODE_VERSION>
+        run: sudo xcode-select -s /Applications/Xcode_<XCODE_VERSION>.app/Contents/Developer
+
+      - name: Setup Ruby + Fastlane
+        uses: ruby/setup-ruby@v1
+        with:
+          bundler-cache: true
+
+      - name: Cache Swift Package Manager
+        uses: actions/cache@v4
+        with:
+          path: |
+            .build
+            ~/Library/Developer/Xcode/DerivedData/**/SourcePackages
+          key: ${{ runner.os }}-spm-${{ hashFiles('**/Package.resolved') }}
+
+      # === USER CUSTOM START ===
+      # Add project-specific pre-upload steps here.
+      # === USER CUSTOM END ===
+
+      - name: Build + upload to TestFlight (no submit)
+        env:
+          MATCH_PASSWORD: ${{ secrets.MATCH_PASSWORD }}
+          MATCH_GIT_BASIC_AUTHORIZATION: ${{ secrets.MATCH_GIT_BASIC_AUTHORIZATION }}
+          APP_STORE_CONNECT_API_KEY_ID: ${{ secrets.APP_STORE_CONNECT_API_KEY_ID }}
+          APP_STORE_CONNECT_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
+          APP_STORE_CONNECT_API_KEY_CONTENT: ${{ secrets.APP_STORE_CONNECT_API_KEY }}
+        run: bundle exec fastlane beta
+
+      - name: Comment TestFlight notice on the PR
+        env:
+          GH_TOKEN: ${{ secrets.PROJECTS_TOKEN || secrets.GITHUB_TOKEN }}
+        run: |
+          PR=$(gh pr list --repo "$GITHUB_REPOSITORY" --head "$BRANCH" --state all --json number --jq '.[0].number // empty')
+          [ -n "$PR" ] && gh pr comment "$PR" --body "🚀 TestFlight build uploaded for \`$BRANCH\`. Apple processing usually takes 5–30 min; you'll get a TestFlight notification when it's installable." || true
+
+  board:
+    name: Board → In-Test
+    needs: [decide, testflight]
+    # Run after a successful TestFlight upload, OR immediately in local mode (testflight skipped).
+    # NEVER move the board if the upload failed/cancelled.
+    if: >
+      always() &&
+      needs.decide.result == 'success' &&
+      needs.testflight.result != 'failure' &&
+      needs.testflight.result != 'cancelled' &&
+      vars.PROJECT_NUMBER != ''
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Board → In-Test
+        env:
+          GH_TOKEN: ${{ secrets.PROJECTS_TOKEN }}
+          PROJECT_NUMBER: ${{ vars.PROJECT_NUMBER }}
+        run: bash .github/scripts/set-project-status.sh In-Test "${{ github.event.workflow_run.head_branch }}"

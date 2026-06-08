@@ -1,0 +1,56 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches:
+      - main
+      - 'feat/**'     # auto-pr.yml opens PRs with GITHUB_TOKEN, which GitHub blocks from
+                      # firing `pull_request` workflows — so we run CI on feat pushes too.
+                      # in-test.yml keys off this run finishing green (workflow_run).
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  validate:
+    name: Lint · Typecheck · Build · Test
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node <NODE_VERSION>
+        uses: actions/setup-node@v4
+        with:
+          node-version: '<NODE_VERSION>'
+          cache: '<PM_CACHE>'
+
+      - name: Install dependencies
+        run: <PM_INSTALL>
+
+      # Prisma client is needed for typecheck/build in the Shopify app template (React Router 7).
+      - name: Generate Prisma client
+        run: npx prisma generate
+
+      # === USER CUSTOM START ===
+      # Add project-specific setup steps here. The skill preserves anything between these markers on update.
+      # === USER CUSTOM END ===
+
+      - name: Lint
+        run: <LINT_COMMAND>
+
+      - name: Typecheck
+        run: <TYPECHECK_COMMAND>
+
+      - name: Build
+        run: <BUILD_COMMAND>
+
+      - name: Test
+        run: <TEST_COMMAND>

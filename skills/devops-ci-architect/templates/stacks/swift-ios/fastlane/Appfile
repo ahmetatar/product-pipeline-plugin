@@ -1,0 +1,5 @@
+app_identifier("<BUNDLE_ID>")
+team_id("<TEAM_ID>")
+
+# Apple ID is read from environment when needed (CI uses App Store Connect API key instead).
+# apple_id("you@example.com")

@@ -1,0 +1,64 @@
+name: In-Test (deploy preview + board)
+
+# Runs when CI succeeds on a feat/** branch. Deploys an UNRELEASED app version (--no-release) so you
+# can preview it in your dev store, then moves the story's board item to In-Test. Not live to
+# merchants — that happens on merge via release.yml.
+
+on:
+  workflow_run:
+    workflows: ['CI']
+    types: [completed]
+
+permissions:
+  contents: read
+  pull-requests: write   # needed for the "Comment on PR with preview notice" step
+
+concurrency:
+  group: in-test-${{ github.event.workflow_run.head_branch }}
+  cancel-in-progress: false
+
+jobs:
+  preview:
+    name: Deploy unreleased version · board → In-Test
+    # Only on a green CI run of a feat branch (not main).
+    if: >
+      github.event.workflow_run.conclusion == 'success' &&
+      startsWith(github.event.workflow_run.head_branch, 'feat/')
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      BRANCH: ${{ github.event.workflow_run.head_branch }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.BRANCH }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '<NODE_VERSION>'
+          cache: '<PM_CACHE>'
+
+      - name: Install dependencies
+        run: <PM_INSTALL>
+
+      - name: Generate Prisma client
+        run: npx prisma generate
+
+      # === USER CUSTOM START ===
+      # Add project-specific pre-deploy steps here (e.g. build extensions).
+      # === USER CUSTOM END ===
+
+      - name: Deploy unreleased app version
+        env:
+          SHOPIFY_CLI_PARTNERS_TOKEN: ${{ secrets.SHOPIFY_CLI_PARTNERS_TOKEN }}
+        # --no-release creates an unreleased preview version. Don't pass --allow-updates
+        # (incompatible with --no-release). The CLI auto-confirms in non-TTY (CI) environments,
+        # so no --force is needed here or in release.yml.
+        run: npx shopify app deploy --no-release
+
+      - name: Board → In-Test
+        if: ${{ vars.PROJECT_NUMBER != '' }}
+        env:
+          GH_TOKEN: ${{ secrets.PROJECTS_TOKEN }}
+          PROJECT_NUMBER: ${{ vars.PROJECT_NUMBER }}
+        run: bash .github/scripts/set-project-status.sh In-Test "$BRANCH"

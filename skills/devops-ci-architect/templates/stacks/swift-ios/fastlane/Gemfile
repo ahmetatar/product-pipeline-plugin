@@ -1,0 +1,7 @@
+source "https://rubygems.org"
+
+gem "fastlane"
+
+# Pin Ruby version (matches what most macOS runners ship with).
+# Adjust if your project requires a different Ruby.
+ruby ">= 3.0"

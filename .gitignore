@@ -1,0 +1,5 @@
+# macOS
+.DS_Store
+
+# Local, machine-specific Claude Code settings (the shared plugin settings live in settings.json)
+.claude/settings.local.json

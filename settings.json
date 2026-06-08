@@ -1,0 +1,46 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-settings.json",
+  "permissions": {
+    "allow": [
+      "Bash(gh auth status)",
+      "Bash(gh auth status:*)",
+      "Bash(gh repo view:*)",
+      "Bash(gh project view:*)",
+      "Bash(gh project create:*)",
+      "Bash(gh project field-list:*)",
+      "Bash(gh project field-create:*)",
+      "Bash(gh project item-list:*)",
+      "Bash(gh project item-add:*)",
+      "Bash(gh project item-edit:*)",
+      "Bash(gh issue list:*)",
+      "Bash(gh issue view:*)",
+      "Bash(gh issue create:*)",
+      "Bash(gh issue edit:*)",
+      "Bash(gh label list:*)",
+      "Bash(gh label create:*)",
+      "Bash(gh workflow run:*)",
+      "Bash(gh workflow list:*)",
+      "Bash(gh pr list:*)",
+      "Bash(gh pr view:*)",
+      "Bash(gh secret set:*)",
+      "Bash(gh secret list)",
+      "Bash(gh repo create:*)",
+      "Bash(xcodebuild -list:*)",
+      "Bash(xcodebuild -version)",
+      "Bash(jq:*)"
+    ]
+  },
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "cmd=$(jq -r '.tool_input.command // empty'); if echo \"$cmd\" | grep -qE '(^|[^a-zA-Z_-])gh +issue +close([^a-zA-Z_-]|$)'; then echo 'BLOCKED by product-pipeline: this pipeline closes issues via PR merge (Closes #N), not manually. Use /story-done to set Project Status; let the merged PR close the issue.' >&2; exit 2; fi"
+          }
+        ]
+      }
+    ]
+  }
+}
