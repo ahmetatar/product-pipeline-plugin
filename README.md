@@ -179,3 +179,9 @@ Subagents pin their own model in frontmatter (above). The guidance below is for 
 - **The merge gate is real.** `devops-ci-architect` sets branch protection so a story can't merge until CI is green.
 - **`po-market-analyst` is App Store-specific.** For a web SaaS or Shopify app, start with **/founder-brief**.
 - **One story per `dev-story-implementer` run.** No bundling, no scope creep — it implements exactly the story you name.
+
+---
+
+## License
+
+[MIT](LICENSE) © Ahmet Atar
