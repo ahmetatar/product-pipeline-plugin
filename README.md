@@ -141,10 +141,18 @@ No other setup — each skill reads what the previous one wrote.
 
 ```
 /plugin marketplace add ahmetatar/product-pipeline-plugin
-/plugin install product-pipeline
+/plugin install product-pipeline@product-pipeline
 ```
 
-For local development, point Claude Code at this folder and enable it from the `/plugin` menu.
+Then verify with `/plugin list`.
+
+**Local development** (iterate on a clone):
+```
+claude --plugin-dir /path/to/product-pipeline-plugin        # one session, or:
+/plugin marketplace add /path/to/product-pipeline-plugin     # persistent
+/plugin install product-pipeline@product-pipeline
+/reload-plugins                                              # pick up edits without restarting
+```
 
 ---
 

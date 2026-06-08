@@ -1,7 +1,7 @@
 {
   "name": "product-pipeline",
   "description": "End-to-end product development pipeline: market analysis → backlog → system architecture (stack + scaffold) → design foundation → feature breakdown → story implementation, with GitHub Issues + Projects v2 as the canonical board surface.",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "author": {
     "name": "Ahmet Atar",
     "email": "ahhmetatar@gmail.com"

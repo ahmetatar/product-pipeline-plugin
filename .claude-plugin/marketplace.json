@@ -1,0 +1,14 @@
+{
+  "name": "product-pipeline",
+  "owner": {
+    "name": "Ahmet Atar",
+    "email": "ahhmetatar@gmail.com"
+  },
+  "plugins": [
+    {
+      "name": "product-pipeline",
+      "source": "./",
+      "description": "Idea → shipped, reviewed code: 8 pipeline skills + 9 subagents + 5 commands, with per-stack CI/CD (iOS / Shopify / web SaaS) and Claude Design integration."
+    }
+  ]
+}
