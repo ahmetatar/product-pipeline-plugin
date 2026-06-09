@@ -65,17 +65,29 @@ sanctioned trigger; no `ultracode` keyword is required). Author a workflow that 
 `competitor-researcher` per discovered app and validates each profile against a schema, so only the
 structured profiles return to your context — not the researchers' tool noise:
 
+**Inline the Phase A app list into the script** — define it as a `const` (each item: `name`,
+`trackId`, plus a stable `id` like `A1`). Do NOT pass it through the Workflow `args` input; `args`
+does not reliably reach the script and the run fails with `args is undefined`.
+
 ```js
+// inline the discovered apps — NOT via args
+const cc = 'us'
+const apps = [
+  { id: 'A1', name: '...', trackId: '...' },
+  // ...one per app Phase A discovered (dynamic N)
+]
+
 // one agent() per discovered app; N is whatever Phase A found (dynamic)
 const profiles = await parallel(apps.map(a => () =>
   agent(
-    `Target app: ${a.trackName}\n` +
+    `Target app: ${a.name}\n` +
     `Platform: iOS\n` +
     `Market / locale (country): ${cc}\n` +
     `iTunes track ID: ${a.trackId}`,
-    { agentType: 'competitor-researcher', label: `research:${a.trackName}`, schema: PROFILE_SCHEMA }
-  )
+    { agentType: 'competitor-researcher', label: `${a.id}:${a.name}`, schema: PROFILE_SCHEMA }
+  ).then(p => p ? { ...p, _id: a.id } : null)
 ))
+return profiles.filter(Boolean)
 ```
 
 `PROFILE_SCHEMA` mirrors the agent's Output format (identity/pricing + verified numbers, core

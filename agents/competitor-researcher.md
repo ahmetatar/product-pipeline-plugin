@@ -54,6 +54,13 @@ GET only, never write) so the JSON is parsed deterministically rather than summa
    with the `trackViewUrl` as the citable source. Note `<cc>` is the locale you actually queried
    (the feed returns the most-recent ~50 reviews for that store) — state it in the output.
 
+   **Themes must come from THIS app's own users** — the RSS corpus (and the App Store listing's
+   own reviews). Do NOT backfill positive/negative themes from third-party or category-level web
+   articles and present them as if they were user-review evidence. If the corpus is thin (few
+   reviews), report **fewer** themes honestly — even zero — rather than padding. Category-level
+   commentary from the web is at most `[inferred]` context and must be labelled as such, never
+   `[verified — itunes-rss]`.
+
 Then layer **WebSearch / WebFetch** on top for what the API does NOT give: paywall placement,
 trial length, marketing-claimed features, and broader sentiment beyond the latest 50 reviews.
 
