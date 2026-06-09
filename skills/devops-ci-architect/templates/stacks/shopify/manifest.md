@@ -68,7 +68,7 @@ If using a hosted DB: `npx prisma migrate deploy` (with `DATABASE_URL`) — host
 ## CI Workflows
 Pipeline: dev-story-implementer marks In-Progress at story start → push feat/** → PR opens (`auto-pr.yml`) → build+test (`ci.yml`, the merge gate) → on green: deploy unreleased version + board In-Test (`in-test.yml`) → `/story-done` (verify green + squash-merge) → release live (`release.yml`) + board Done.
 
-- `.github/workflows/auto-pr.yml` — push to `feat/**` · opens the PR (`gh pr create --fill`, so `Closes #N` carries into the PR body) if none is open. Board moves are not its job.
+- `.github/workflows/auto-pr.yml` — push to `feat/**` · opens the PR (title + body taken from the HEAD commit, so `Closes #N` carries into the PR body even on multi-commit branches) if none is open. Board moves are not its job.
 - `.github/workflows/ci.yml` — every PR + push to main + push to `feat/**` · install + lint + typecheck + build + tests. **No deploy.** Required check for merge.
 - `.github/workflows/in-test.yml` — runs when CI succeeds on a `feat/**` branch · `shopify app deploy --no-release` (unreleased preview in the dev store) · then board → In-Test.
 - `.github/workflows/release.yml` — push to `main` (ignores `docs/**`), i.e. when `/story-done` squash-merges the PR · `shopify app deploy` (releases the version live); web host deploy is in the USER CUSTOM block.
