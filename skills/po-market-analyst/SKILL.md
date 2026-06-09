@@ -54,12 +54,38 @@ Focus on apps matching this profile:
 
 ## 3. RESEARCH DELEGATION (per-competitor work goes to a subagent)
 
-Do NOT research each competitor yourself. After identifying the top 8–12 apps for the keyword,
-delegate each one to the `competitor-researcher` subagent in **parallel** (one tool message,
-multiple `Agent` calls). The subagent runs on Haiku, uses WebSearch + WebFetch, and returns a
-tight evidence-tagged profile.
+Do NOT research each competitor yourself. After identifying the top 8–12 apps in Phase A, fan the
+per-competitor research out to the `competitor-researcher` subagent (Haiku; iTunes API + WebSearch
++ WebFetch; returns a tight evidence-tagged profile). The fan-out width is **dynamic** — exactly
+the number of apps Phase A discovered, not a fixed count.
 
-**Call shape** (one per competitor):
+**Primary path — dynamic Workflow.** Run the fan-out as an inline `Workflow` authored at runtime
+(invoking this skill is the opt-in — these instructions tell you to call `Workflow`, which is a
+sanctioned trigger; no `ultracode` keyword is required). Author a workflow that fans out one
+`competitor-researcher` per discovered app and validates each profile against a schema, so only the
+structured profiles return to your context — not the researchers' tool noise:
+
+```js
+// one agent() per discovered app; N is whatever Phase A found (dynamic)
+const profiles = await parallel(apps.map(a => () =>
+  agent(
+    `Target app: ${a.trackName}\n` +
+    `Platform: iOS\n` +
+    `Market / locale (country): ${cc}\n` +
+    `iTunes track ID: ${a.trackId}`,
+    { agentType: 'competitor-researcher', label: `research:${a.trackName}`, schema: PROFILE_SCHEMA }
+  )
+))
+```
+
+`PROFILE_SCHEMA` mirrors the agent's Output format (identity/pricing + verified numbers, core
+features, positive/negative themes with example + source, monetization, sources). The agent already
+enforces that shape and its evidence tagging — the schema just makes validation deterministic.
+
+**Fallback — parallel `Agent` calls.** If the `Workflow` tool is unavailable in the environment,
+fan out the identical work as parallel `Agent` calls instead (one tool message, multiple calls; in
+waves of ~8 if the list exceeds 8 — the same idiom `ba-feature-analyst` uses for per-story drafting),
+with this prompt per competitor:
 
 ```
 Agent({
@@ -68,12 +94,15 @@ Agent({
   prompt: "
     Target app: [Name or App Store URL]
     Platform: [iOS / Android]
-    Market / locale: [e.g. US App Store, TR App Store]
+    Market / locale (country): [e.g. US App Store → us, TR App Store → tr]
+    iTunes track ID: [trackId from Phase A discovery — iOS only; omit for Android/unresolved]
   "
 })
 ```
 
-The agent enforces its own output format and evidence tagging — do not restate them in the prompt.
+Either path: always pass the iTunes `trackId` you resolved in Phase A for iOS apps — it lets the
+subagent pull verified numbers + the review corpus from the API instead of guessing from pages. Do
+not restate the agent's output format/evidence tagging in the prompt; it enforces its own.
 
 After all profiles return:
 - Drop any app the subagent could not resolve (note in the report's appendix).
@@ -88,11 +117,33 @@ After all profiles return:
 ## 4. ANALYSIS PHASES
 
 ### Phase A — Keyword Search & Competitor Identification (you do this)
-- Use WebSearch to identify top-ranking apps for the keyword on the relevant App Store(s).
-- Build a target list of 8–12 apps. Note their App Store URLs.
+
+**iOS — deterministic discovery via the iTunes Search API (preferred).** For each keyword, query:
+
+```bash
+curl -s "https://itunes.apple.com/search?term=<URL-ENCODED-KW>&country=<CC>&entity=software&limit=20" \
+  | jq '.results[] | {trackId, trackName, sellerName, averageUserRating, userRatingCount, formattedPrice, primaryGenreName, currentVersionReleaseDate, trackViewUrl}'
+```
+
+- **Multi-keyword:** run the query once per keyword, then **union all results and dedup by `trackId`**
+  (the same app surfaces under several keywords — keep it once).
+- Apply the §2 Target App Criteria to the deduped pool (review count, rating sweet spot, update
+  activity, visible monetization) and **narrow to 8–12 apps**.
+- For each kept app, carry forward: `trackName`, **`trackId`**, `trackViewUrl`, and the raw numbers
+  above (rating / review count / price / last update) — these flow into §2, the subagent prompt,
+  and §8 benchmarks as `[verified — itunes-lookup]`.
+- The iTunes Search ordering is a **relevance/popularity order, NOT App Store ASO keyword rank**.
+  Label it `relevance-order` wherever you reference position; true ASO rank needs a paid tool
+  (note this in §12). Do not claim "ranks #N for the keyword".
+
+**Android / both:** the iTunes API is iOS-only and Google Play has no equivalent free API. For the
+Android side, fall back to **WebSearch** to identify top apps and their Play Store URLs (no trackId
+to pass downstream). State the iOS-vs-Android methodology difference explicitly in §12.
 
 ### Phase B — Per-Competitor Research (delegated)
-- Spawn parallel `competitor-researcher` calls (Section 3).
+- Fan the research out via the dynamic `Workflow` (Section 3 primary path), one
+  `competitor-researcher` per discovered app; fall back to parallel `Agent` calls only if the
+  `Workflow` tool is unavailable.
 - Collect returned profiles. Assign each a stable ID: `A1`, `A2`, … `A12`. po-backlog will
   cite these IDs.
 
@@ -107,7 +158,9 @@ From the aggregated profiles:
 - **Risk factors** — why apps fail in this category.
 
 ### Phase D — Category Benchmarks
-Aggregate numerical patterns across the profiles. These feed `po-backlog`'s KPI section:
+Aggregate numerical patterns across the profiles. These feed `po-backlog`'s KPI section. For iOS
+apps, draw rating / review-count / price / last-update from the `[verified — itunes-lookup]` numbers
+carried from Phase A — not from web estimates:
 - Rating distribution (e.g. "top 10 cluster at 3.6–4.4, median 4.0")
 - Review counts (median, range)
 - Pricing patterns (typical subscription tier, common trial length, IAP price points)
@@ -183,14 +236,21 @@ The full template lives at **`templates/market-analysis-report.md`** (sibling of
 ## 6. WORKING PRINCIPLES (MUST follow)
 
 - Cap competitor list at 8–12. Quality over quantity.
-- Delegate per-competitor research to `competitor-researcher`. Do NOT do it yourself —
-  parallel subagent calls are faster and cheaper, and the subagent enforces evidence tagging.
+- Delegate per-competitor research to `competitor-researcher` via the dynamic `Workflow` fan-out
+  (Section 3), falling back to parallel `Agent` calls if `Workflow` is unavailable. Do NOT research
+  apps yourself — the dynamic fan-out is faster, keeps researcher tool-noise out of your context,
+  and the subagent enforces evidence tagging.
 - Synthesis (§5–§11) is YOUR job — subagents only profile individual apps.
 - Every claim in §5–§11 must trace to evidence: a `[verified — url]` from a profile, an
   `[inferred from N reviews]` aggregation, or an explicit limitation note in §12.
 - Section IDs (§1–§12) are stable. po-backlog cites them. Do not rename or renumber.
 - Be honest about locale: if you searched the US App Store but the user asked for TR, say so
-  in §12 and soften recommendations accordingly.
+  in §12 and soften recommendations accordingly. Pass the matching `country` code to discovery
+  and to each subagent.
+- **iTunes Search order ≠ ASO keyword rank.** It is a relevance/popularity ordering. Never write
+  "ranks #N for the keyword"; note the limitation in §12. True ASO rank needs a paid tool.
+- **iOS-only API.** The iTunes API covers the iOS App Store only. For Android, discovery falls back
+  to WebSearch and there are no `[verified — itunes-lookup]` numbers — flag the asymmetry in §12.
 - Never claim "guaranteed" anything. Frame recommendations as "best opportunity-to-risk ratio".
 
 ---
