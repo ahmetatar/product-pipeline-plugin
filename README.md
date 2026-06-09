@@ -22,23 +22,45 @@ Works for **iOS apps**, **web SaaS** (Angular/React front-end + Node.js/TypeScri
 Run the steps in order — each produces a file the next one reads. Example phrases are what you actually type to Claude.
 
 ```mermaid
+%%{init: {'flowchart': {'curve':'basis','nodeSpacing':40,'rankSpacing':50,'padding':18,'subGraphTitleMargin':{'top':8,'bottom':12}}}}%%
 flowchart TD
-    A["1 · po-market-analyst<br/><i>or</i> /founder-brief"] -->|market_analysis_report.md| B["2 · po-backlog"]
-    B -->|feature_backlog.md| C["3 · system-architect"]
-    C -->|CLAUDE.md + REFERENCES.md| D["4 · pd-design-foundation"]
-    D -->|design-system.md + tokens| E["5 · ba-feature-analyst"]
-    E -->|story-plan.md per story| F["6 · dev-story-implementer"]
-    F -->|feat branch + PR| G["GitHub Actions<br/>CI gate → In-Test → deploy"]
-    G -.->|/story-done merges| F
-    F -.->|repeat 5–6 per feature| E
+    subgraph plan ["🧭&nbsp; Plan &nbsp;·&nbsp; once per project"]
+        direction TB
+        A["①&nbsp; po-market-analyst<br/><i>or /founder-brief</i>"] --> B["②&nbsp; po-backlog"] --> C["③&nbsp; system-architect"] --> D["④&nbsp; pd-design-foundation"]
+    end
 
-    PI["po-product-intake<br/><i>add an idea later</i>"] -.->|updates backlog| B
-    CI["devops-ci-architect<br/><i>set up CI/CD once</i>"] -.-> G
+    subgraph build ["🔁&nbsp; Build loop &nbsp;·&nbsp; per story"]
+        direction TB
+        E["⑤&nbsp; ba-feature-analyst"] --> F["⑥&nbsp; dev-story-implementer"]
+    end
+
+    subgraph ship ["🚀&nbsp; Ship &nbsp;·&nbsp; automated"]
+        direction TB
+        G["GitHub Actions<br/><i>CI · In-Test · deploy</i>"]
+    end
+
+    D ==> E
+    F ==> G
+    G -.->|next story| E
+
+    F -.->|UI story| CD(["✦&nbsp; Claude Design"])
+    CD -.-> F
+
+    PI(["po-product-intake"]) -.->|add an idea| B
+    CIX(["devops-ci-architect"]) -.->|setup once| G
 
     classDef core fill:#1f6feb,stroke:#0d419d,color:#fff;
+    classDef ship fill:#238636,stroke:#1a6e2e,color:#fff;
     classDef aux fill:#2d333b,stroke:#444c56,color:#adbac7;
+    classDef design fill:#d97757,stroke:#b85c3e,color:#fff;
     class A,B,C,D,E,F core;
-    class PI,CI,G aux;
+    class G ship;
+    class PI,CIX aux;
+    class CD design;
+
+    style plan fill:#0d1117,stroke:#30363d,color:#8b949e;
+    style build fill:#0d1117,stroke:#30363d,color:#8b949e;
+    style ship fill:#0d1117,stroke:#30363d,color:#8b949e;
 ```
 
 | # | Say something like… | What runs | What you get |
