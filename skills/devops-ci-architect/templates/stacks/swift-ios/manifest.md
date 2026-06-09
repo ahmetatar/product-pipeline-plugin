@@ -120,7 +120,7 @@ Pipeline: dev-story-implementer marks In-Progress at story start → push feat/*
 - `local-simulator` — CI verifies; install the branch on your simulator with `scripts/run-on-sim.sh` (`SIMULATOR="<other device>"` to override). CI can't reach your local simulator, so this step is local.
 - `testflight` — on green CI, `in-test.yml` builds signed + uploads to TestFlight (no auto-submit), comments the PR, then moves the board. Test on-device when Apple finishes processing (~5–30 min).
 
-- `.github/workflows/auto-pr.yml` — push to `feat/**` · opens the PR (`gh pr create --fill`, so `Closes #N` carries into the PR body) if none is open.
+- `.github/workflows/auto-pr.yml` — push to `feat/**` · opens the PR (title + body taken from the HEAD commit, so `Closes #N` carries into the PR body even on multi-commit branches) if none is open.
 - `.github/workflows/ci.yml` — every PR + push to main + push to `feat/**` · lint + build + tests (unsigned, simulator). Required check for merge.
 - `.github/workflows/in-test.yml` — on green CI of a `feat/**` branch · `decide` delivery → (`testflight`: signed build + TestFlight upload) → board → In-Test.
 - `.github/workflows/testflight.yml` — `workflow_dispatch` **only** · `gh workflow run testflight.yml` · ad-hoc signed build + TestFlight upload (no auto-submit).

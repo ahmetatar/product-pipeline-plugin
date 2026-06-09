@@ -83,7 +83,7 @@ Pipeline: dev-story-implementer marks In-Progress at story start → push feat/*
 
 This stack is **host-agnostic** — the host deploy is a USER CUSTOM block in `release.yml`, filled when you pick a host (Vercel / Netlify / Fly.io / Railway / AWS / …).
 
-- `.github/workflows/auto-pr.yml` — push to `feat/**` · opens the PR (`gh pr create --fill`, so `Closes #N` carries into the PR body) if none is open. Board moves are not its job.
+- `.github/workflows/auto-pr.yml` — push to `feat/**` · opens the PR (title + body taken from the HEAD commit, so `Closes #N` carries into the PR body even on multi-commit branches) if none is open. Board moves are not its job.
 - `.github/workflows/ci.yml` — every PR + push to main + push to `feat/**` · install + lint + typecheck + build + tests across both workspaces. **No deploy.** Required check for merge.
 - `.github/workflows/in-test.yml` — runs when CI succeeds on a `feat/**` branch · board → In-Test. No deploy by default; add a per-branch preview in its USER CUSTOM block if you run one.
 - `.github/workflows/release.yml` — push to `main` (ignores `docs/**`), i.e. when `/story-done` squash-merges · build → `prisma migrate deploy` (if `DATABASE_URL` set) → host deploy (USER CUSTOM) → board → Done.
