@@ -57,13 +57,19 @@ proof — it builds for the host. Pick the set matching the Phase B app-target c
 
 **SPM-modular library** (after setting `platforms: [.iOS(...)]` in `Package.swift`):
 - Build:  `xcodebuild build -scheme <AppName> -destination 'generic/platform=iOS Simulator'`
-- Test:   `xcodebuild test -scheme <AppName> -destination 'platform=iOS Simulator,name=iPhone 17 Pro Max'`
+- Test:   `xcodebuild test -scheme <AppName> -destination 'platform=iOS Simulator,name=iPhone 17 Pro Max' -parallel-testing-enabled NO`
   (a fresh package may report "no tests" — acceptable)
 
 **Full Xcode app target** (XcodeGen/Tuist) — after generating the project:
 - Scheme: `xcodebuild -list`  (confirm the scheme resolves)
 - Build:  `xcodebuild build -scheme <Scheme> -destination 'generic/platform=iOS Simulator'`
-- Test:   `xcodebuild test -scheme <Scheme> -destination 'platform=iOS Simulator,name=iPhone 17 Pro Max'`
+- Test:   `xcodebuild test -scheme <Scheme> -destination 'platform=iOS Simulator,name=iPhone 17 Pro Max' -parallel-testing-enabled NO`
+
+> **`-parallel-testing-enabled NO` is required on the Test command.** Without it xcodebuild clones the
+> simulator per test class (`Clone 1 of …`, `Clone 2 of …`) and runs them in parallel — several booted
+> simulators at once, heavy on a dev machine and noisier logs. The flag runs the suite sequentially on a
+> single simulator. Record the Test command **with this flag** in `docs/REFERENCES.md` so every
+> downstream story inherits it.
 
 **Both shapes:**
 - Lint:   `swiftlint`    (or `swiftlint --strict` if the user wants it gated)

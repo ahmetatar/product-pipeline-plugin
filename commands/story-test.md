@@ -29,9 +29,25 @@ Follow the same shape as `/story-start`, but target the `In-Test` Status option:
    gh project item-edit --id "$ITEM_ID" --project-id "$PROJECT_NODE_ID" \
      --field-id "$STATUS_FIELD_ID" --single-select-option-id "$STATUS_OPT_ID"
    ```
-8. Report:
+8. **Resolve the test-delivery mode (capability-gated).** Only if this project documents a per-story
+   test-delivery choice — i.e. `docs/CI.md` mentions `deliver:testflight` / `deliver:local` labels.
+   `dev-story-implementer` recorded the story's choice as a `Deliver:` commit trailer, which `auto-pr.yml`
+   turned into a matching PR label. Read it back off the PR so the next-step message matches what was chosen:
+   ```bash
+   DELIVER=$(gh pr list --repo "$REPO" --search "$STORY_ID in:title" --state all \
+     --json labels --jq '.[0].labels[].name | select(startswith("deliver:"))' | head -1)
+   ```
+   `deliver:testflight` → testflight mode; `deliver:local` → local-simulator mode; empty / no such labels
+   documented → unknown (fall through to the generic message).
+9. Report — tailor **Next step** to `$DELIVER`:
    > $STORY_ID → In-Test · https://github.com/$REPO/issues/$ISSUE_NUMBER
-   > Next step: test the change (Shopify: open the unreleased version in your dev store; iOS: run the branch on your simulator), then run `/story-done $ARGUMENTS` — it merges the PR and marks it Done.
+
+   - **local-simulator** (`deliver:local`):
+     > Next step: install the branch on your simulator and verify it (`scripts/run-on-sim.sh` if present), then run `/story-done $ARGUMENTS` — it merges the PR and marks it Done.
+   - **testflight** (`deliver:testflight`):
+     > Next step: once TestFlight finishes processing the build, test it on-device, then run `/story-done $ARGUMENTS` — it merges the PR and marks it Done.
+   - **unknown / no per-story choice** (generic):
+     > Next step: test the change (Shopify: open the unreleased version in your dev store; iOS: run the branch on your simulator), then run `/story-done $ARGUMENTS` — it merges the PR and marks it Done.
 
 > `in-test.yml` is `workflow_run`-triggered (it fires when CI goes green) — there is nothing to
 > dispatch manually. This command only sets the board status.

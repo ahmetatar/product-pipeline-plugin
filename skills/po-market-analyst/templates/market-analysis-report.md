@@ -25,6 +25,8 @@ Apply this template literally when writing the report. Replace bracketed placeho
 | A2 | ... | ... | 3.7 / 4,200 | Free + IAP | 2024-08 | url |
 
 (8–12 rows. Apps the researcher could not resolve are listed in Appendix §10.)
+For iOS apps, Rating / Reviews / Last Update are `[verified — itunes-lookup]` and Source carries
+the `trackViewUrl`. Android rows fall back to web sources (no itunes-lookup verification).
 
 ---
 
@@ -80,6 +82,7 @@ Verdict definitions in Phase F. po-backlog copies the Verdict column into its `c
 ---
 
 ## §8 — Category Benchmarks (for po-backlog's KPIs)
+_iOS numeric ranges below are aggregated from `[verified — itunes-lookup]` data (Phase A/D)._
 - **Rating:** range [X–Y], median Z
 - **Reviews:** median N, top quartile threshold
 - **Pricing:** typical subscription [tier/price], typical trial length, common IAPs
@@ -124,5 +127,9 @@ Must reference §5/§6/§7 explicitly.
 ## §12 — Appendix: Limitations & Skipped Apps
 - **Apps the researcher could not resolve:** [list with reason]
 - **Locale gaps:** [e.g. "TR-specific signals were sparse; report leans on US App Store data"]
+- **Ranking caveat:** app order reflects iTunes Search **relevance-order**, NOT App Store ASO
+  keyword rank (true rank requires a paid tool). [state if relevant]
+- **Platform asymmetry:** [if Android/both — iOS numbers are itunes-lookup verified; Android
+  discovery used WebSearch only, with no equivalent API verification]
 - **Confidence caveats:** [anything that should soften the recommendations]
 ````

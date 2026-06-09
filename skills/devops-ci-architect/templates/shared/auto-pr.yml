@@ -37,7 +37,32 @@ jobs:
           GH_TOKEN: ${{ secrets.PROJECTS_TOKEN || secrets.GITHUB_TOKEN }}
         run: |
           BRANCH="${GITHUB_REF#refs/heads/}"
-          # gh pr create --fill copies the commit message into the PR body, so `Closes #N`
-          # carries over and the issue auto-closes on merge.
-          gh pr list --head "$BRANCH" --state open --json number --jq '.[0].number' | grep -q . \
-            || gh pr create --fill --base main --head "$BRANCH"
+          # Already an open PR for this branch? Nothing to do.
+          if gh pr list --head "$BRANCH" --state open --json number --jq '.[0].number' | grep -q .; then
+            echo "PR already open for $BRANCH — skipping."
+            exit 0
+          fi
+          # Title + body come from the HEAD commit — dev-story-implementer's story
+          # commit, which carries `Closes #N`. We deliberately do NOT use
+          # `gh pr create --fill`: on a MULTI-COMMIT branch --fill ignores commit
+          # messages — it humanizes the branch name into the title and drops the
+          # `Closes #N` footer from the body, so the issue never links (no auto-close
+          # on merge, and in-test.yml can't find the story to move the board). On a
+          # single-commit branch this is identical to the old --fill behavior.
+          TITLE=$(git log -1 --format=%s)
+          BODY=$(git log -1 --format=%b)
+          # Per-story test-delivery choice rides in a `Deliver:` commit trailer that
+          # dev-story-implementer writes (answer taken at story start). Map it to the matching
+          # deliver:* PR label so in-test.yml's `decide` job picks it up — applied here, at PR
+          # birth, so it's present long before CI goes green. No trailer → no label → `decide`
+          # falls back to the IOS_TEST_DELIVERY variable. (Labels must pre-exist:
+          # deliver:testflight / deliver:local — the stack's setup creates them.)
+          # Grep the body directly rather than git's %(trailers:…): the `Closes #N` line (no colon)
+          # shares the trailer paragraph and defeats git's trailer-block heuristic.
+          DELIVER=$(git log -1 --format=%B | grep -i '^Deliver:' | tail -1 | cut -d: -f2- | tr '[:upper:]' '[:lower:]' | tr -d '[:space:]')
+          LABEL_ARGS=()
+          case "$DELIVER" in
+            testflight)            LABEL_ARGS=(--label deliver:testflight) ;;
+            local|local-simulator) LABEL_ARGS=(--label deliver:local) ;;
+          esac
+          gh pr create --base main --head "$BRANCH" --title "$TITLE" --body "$BODY" "${LABEL_ARGS[@]}"

@@ -19,7 +19,7 @@ concurrency:
 
 jobs:
   validate:
-    name: Lint · Build · Test
+    name: Lint · Build
     runs-on: macos-latest
     timeout-minutes: 30
     steps:
@@ -51,8 +51,13 @@ jobs:
             echo "::notice::swiftlint not installed on runner; skipping lint. Install via 'brew install swiftlint' on macos-latest if needed."
           fi
 
+      # Build-only merge gate — proves the app compiles for the iOS Simulator. Simulator tests are NOT
+      # run in CI: ephemeral runners have no iOS simulator runtime pre-installed, so `xcodebuild test`
+      # silently downloads a multi-GB runtime (~10 min) on EVERY run (never cached; the OS pin is
+      # irrelevant — it downloads either way). In this pipeline tests run locally — dev-story-implementer's
+      # Phase D + the In-Test simulator launch — so re-running them in CI is slow and redundant. A
+      # `generic/platform=iOS Simulator` destination resolves no concrete device, so it needs no runtime
+      # and stays ~90s. (To gate on tests anyway — e.g. a runner with the runtime baked in — add a Test
+      # step here running the Verified test command; expect the runtime download on bare runners.)
       - name: Build
-        run: <BUILD_COMMAND>
-
-      - name: Test
-        run: <TEST_COMMAND>
+        run: xcodebuild build -scheme <SCHEME> -destination 'generic/platform=iOS Simulator'

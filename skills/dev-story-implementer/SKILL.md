@@ -90,10 +90,21 @@ Commands` in `docs/REFERENCES.md`."
 `n/a` → skip. `required`: look for the design under `<story-folder>/design/` (Claude Design HTML
 export + handoff bundle).
 - **Present** → pass; consume it in Phase A/B as the visual + structural target.
-- **Absent** → ask: "This UI story has no design yet. (1) work on the design  (2) continue without it
-  (3) cancel."
+- **Absent** → this is a genuine design-approach choice, not a pass/fail. Ask the user **how the UI
+  should be designed** (both routes bind to the same `docs/design-system.md` + tokens — they differ in
+  who produces the visual and whether there's a round-trip):
+  > This UI story has no design artifact yet. How should the UI be designed?
+  > (1) **Claude Design** — I write a Claude-Design-ready prompt grounded in our design system; you run
+  >     it in the Claude Design web app, export the standalone HTML + handoff bundle into `design/`, then
+  >     re-run me. Highest visual fidelity; best for novel, complex, or high-polish screens. (One round-trip.)
+  > (2) **I design it directly from the design system** — no external tool, no round-trip: I build the UI
+  >     now straight from `docs/design-system.md` + the tokens file (the source of truth). Best when the
+  >     design system already covers this screen (standard/derivative layouts). I proceed immediately.
+  > (3) cancel.
   - (3) → STOP.
-  - (2) → build from `docs/design-system.md` + tokens only; note "no design artifact" in hand-off.
+  - (2) → proceed now; build the UI from `docs/design-system.md` + tokens as the visual + structural
+    target (they are the source of truth — translate each token to its platform symbol per Phase B).
+    Note "designed directly from the design system, no Claude Design artifact" in the hand-off.
   - (1) → delegate the prompt to `design-prompt-writer`, then STOP **before** branching/marking:
     ```
     Agent({ description: "Design prompt for S-XX", subagent_type: "design-prompt-writer", prompt: "
@@ -135,6 +146,20 @@ starts from an up-to-date `main`** — never stacked on another story's branch.
   returns `error:` → log a warning and continue; never block on GitHub. (CI later moves the board to
   In-Test on green — that part is not yours.)
 
+**Gate 9 — Per-story test delivery (capability-gated; only if the project documents it).** If
+`docs/CI.md` documents `deliver:testflight` / `deliver:local` labels — i.e. this project has a
+per-story test-delivery choice — ask the user now, before any code:
+> How should this story be tested in In-Test?
+> (1) **local-simulator** — CI just verifies the build; you install the branch on your own simulator.
+> (2) **testflight** — on green CI, a signed build is uploaded to TestFlight for real-device testing.
+
+Remember the answer — it drives two later steps: (a) you record it as a `Deliver:` trailer in the §4
+commit (`Deliver: local` / `Deliver: testflight`), and `auto-pr.yml` turns that trailer into the
+matching PR label when it opens the PR — you never add the label or touch the PR yourself; and (b) in
+`local-simulator` mode you launch the app on the simulator after push (§4) for the user's In-Test pass.
+If `docs/CI.md` documents no such choice, or the user skips → omit the trailer and the launch; CI falls
+back to the project's configured default.
+
 ---
 
 ## 3. Implementation phases
@@ -162,19 +187,41 @@ Walk `## Observable Behavior`; verify the diff matches exactly — every State t
 Persistence listed exists, none exist that aren't listed, payloads match, and nothing under **Must
 NOT emit** appears. Mismatch → fix the code, not the spec. Spec genuinely wrong → STOP and ask.
 
-### Phase D — Verification (mandatory)
+### Phase D — Automated verification (mandatory)
 Run every automated command in `## Verification`. They MUST pass — debug and re-run; "tests later" is
 forbidden. Command itself wrong (bad path) → STOP and ask before changing it. **Capture each
 command's literal final output line** for the hand-off (self-attestation is not acceptable).
 
-Build the manual list from BOTH (a) every `## Verification → Manual` step and (b) **every `## Edge
-Cases` row**. Present it and wait:
-> Manual verification:
-> 1. [Manual] Complete onboarding from cold start. Expect: welcome → 2 inputs → success.
-> 2. [Edge] Network drops during step 2. Expect: inline error + retry.
-> Did each step pass? (all-pass / partial / fail)
+These automated commands are the **only gate on the commit**. The human's visual/manual pass is NOT a
+pre-commit step — it is the In-Test phase itself, and happens *after* push, against the build you
+launch in §4. (Testing everything by hand before pushing would make the In-Test board state
+meaningless — you'd be "done" before In-Test even begins.) So don't present a manual checklist or wait
+on the user here; just prove the automated commands pass and move on.
 
-Failure → STOP, fix, re-run from Phase D.
+**Iterate narrow, finalize full.** While debugging the fix loop, run the narrowest test selector your
+stack offers (xcodebuild `-only-testing:Target/Suite`, `pytest path::test`, `go test -run`,
+`vitest <file>`) so each cycle stays cheap — re-running a full suite (esp. iOS UI-test targets that
+boot a simulator runner) on every edit is slow and pegs the machine. When the narrow run goes green,
+run the story's **full `## Verification` command once** before the initial commit — that full run, not
+the narrow subset, is the gate on the code you first hand off.
+
+**Run only the checks a change can affect — decide per change, don't reflexively re-run everything.**
+The guarantee is that the *merged* code passed its full `## Verification`, not that you re-ran every
+command after every edit. A check's result only moves when its inputs move: a pure view-layout / copy
+/ asset edit cannot change a unit-test outcome, so once that suite is green it stays green until the
+*logic it exercises* changes. So:
+- The **build** always runs — cheapest real check, catches compile breaks; in `local-simulator` mode
+  you rebuild to relaunch anyway, so it's already paid for.
+- A **test command** re-runs when the change could move its result (logic, data shapes, contracts, the
+  code under test). For changes that provably can't (styling/layout/copy/assets), skip the re-run —
+  the last green result still holds; say so in the hand-off ("layout-only; OnboardingModelTests
+  unchanged, last green run holds").
+- **Floor (never cross it):** the full `## Verification` suite must have passed on the branch's
+  *current logic* before that logic is finalized for merge. Where CI is build-only (doesn't run
+  tests), this local run is the *only* place tests ever execute — so any logic-affecting change in the
+  §4 In-Test loop re-runs the suite locally then; never let changed logic reach `/story-done` without a
+  green local suite behind it. "Tests later" is still forbidden — this is "don't re-run a test whose
+  inputs didn't change," not "skip the gate."
 
 ### Phase E — Update REFERENCES.md
 If the story introduced a structural change (new dir/convention/command), update `docs/REFERENCES.md`
@@ -204,29 +251,68 @@ Anything unchecked → STOP and address it.
 
 ---
 
-## 4. Commit & push (your terminal action)
+## 4. Commit, push & launch for In-Test
 
-Once Phase D passed, the review is Approve, and the DoD checks out (`story-plan.md` is already
-`In-Progress` from Gate 8, so it commits along with the code):
+Once Phase D's **automated** commands passed, the review is Approve, and the DoD checks out
+(`story-plan.md` is already `In-Progress` from Gate 8, so it commits along with the code) — you commit
+and push now. You do NOT wait for the user to manually test first; their test is the In-Test phase,
+which begins after this push.
 
 1. Stage everything (`git add -A` — Gate 0 caught any pollution).
 2. Commit with a conventional-commits message (per `CLAUDE.md`), `Closes #N` in the body — **mandatory**
-   (CI opens the PR with `gh pr create --fill`, so the commit body becomes the PR body and the issue
-   auto-closes on merge):
+   (CI carries the commit body into the PR body, so the issue auto-closes on merge):
    ```
    feat(F-XXX): [S-YY] <imperative subject ≤72 chars>
 
    - <one line per Touch Point or logical change>
 
    Closes #<issue_number>
+   Deliver: <local|testflight>
    ```
    Subject: imperative, lowercase, no trailing period. `feat` usually; `chore`/`docs`/`ci` if pure config.
+   The `Deliver:` trailer is written **only if Gate 9 applied** (project documents the choice) — use the
+   answer from Gate 9; `auto-pr.yml` reads this trailer to label the PR's test-delivery mode. Omit the
+   line entirely when Gate 9 didn't apply or the user skipped.
 3. Push with upstream: `git push -u origin "$(git branch --show-current)"`.
    - No git remote → stop here; the work is committed locally. Hand-off notes "no remote — push is the user's job."
+4. **Launch for In-Test — local-simulator only, don't wait for CI.** The push fires CI + the In-Test
+   board move in the cloud; *in parallel*, if Gate 9 resolved to `local-simulator` and a local launcher
+   exists (`scripts/run-on-sim.sh`), run it now to build + install + launch the app on the simulator.
+   This is the build the user visually tests during In-Test — no Xcode, no script for them to type.
+   Launch fails (e.g. the simulator name isn't installed) → report it and tell the user to launch
+   manually; never treat it as a story failure. (testflight mode: skip — the signed build reaches their
+   device via TestFlight. Non-iOS / no launcher: skip.) This first push is what opens the PR and moves
+   the board to In-Test — it always happens once, here, regardless of delivery mode.
 
-**Then STOP.** Do NOT open the PR, dispatch workflows, move the board past In-Progress, or merge —
-GitHub Actions owns all of that. (If the repo has no `.github/workflows/`, still commit + push; note
-in hand-off that CI isn't wired, so the PR + In-Test board move won't happen automatically.)
+   **In-Test fix loop — when the user reports a bug or asks for a tweak, how you handle it depends on
+   the delivery mode** (the fix lands on the same branch either way; re-run only the checks the change
+   can affect, per Phase D — build always, tests only if the change could move their result):
+   - **`local-simulator` → fix locally, relaunch, DON'T re-push per fix.** Commit the fix on the branch,
+     then **rebuild + relaunch on the simulator** so the user re-tests the fixed build. Do **not** push.
+     CI here is build-only, so re-pushing every tweak only re-verifies a build you already built locally
+     — no new signal, just a wait and PR churn. The accumulated local commits ride to the PR in one shot
+     when the user runs `/story-done` (it pushes the branch, waits for green CI, then squash-merges, so
+     the intermediate commits collapse). Your loop is: fix → local verify (affected checks) → relaunch →
+     hand back. No remote action between the first push and `/story-done`.
+   - **`testflight` (or any mode where CI, not your machine, produces the tested artifact) → re-push each
+     fix.** The device build only exists once CI uploads it, so commit → re-run affected checks → push;
+     green CI re-runs `in-test.yml` and a fresh signed build reaches the device.
+
+   The simulator relaunch above runs on **every fix in `local-simulator` mode** (whether or not it
+   pushed) — it's how the user always sees the latest build; it's local, never gated on CI.
+
+Then present the **In-Test checklist as hand-off guidance — do NOT block or loop on it** (this is the
+user's pass, on their own time). Build it from every `## Verification → Manual` step + **every `## Edge
+Cases` row**:
+> In-Test — the app is running on your simulator. Verify:
+> 1. [Manual] Complete onboarding from cold start. Expect: welcome → 2 inputs → success.
+> 2. [Edge] Network drops during step 2. Expect: inline error + retry.
+> Looks right? Run `/story-done`. Found a bug? Tell me — I'll fix it on this branch and relaunch the fixed build on your simulator. (`local-simulator`: I don't re-push each fix — the fixes ride to the PR when you run `/story-done`. `testflight`: each fix re-pushes so a fresh signed build reaches your device.)
+
+**Then STOP.** Beyond the local launch above you do nothing else: do NOT open the PR, dispatch
+workflows, move the board, or merge — GitHub Actions owns the PR + the In-Test board move; the merge is
+`/story-done`. (If the repo has no `.github/workflows/`, still commit + push + launch; note in hand-off
+that CI isn't wired, so the PR + In-Test board move won't happen automatically.)
 
 ---
 
@@ -237,11 +323,17 @@ Concise summary:
   > `$ swift test --filter OnboardingTests`
   > `Test Suite 'OnboardingTests' passed … (3 tests, 0 failures)`
 - Code-reviewer verdict (+ any advisories).
-- **Commit hash + branch name.** The board is already at In-Progress (Gate 8). What happens next,
-  automatically: the push fires `auto-pr.yml` (PR opens); `ci.yml` runs build + test; on green
-  `in-test.yml` moves the board to In-Test (Shopify deploys a preview). Give the user the issue link.
-- **Manual verification checklist** (Verification → Manual + every Edge Cases row). The user runs these
-  against the In-Test build, then runs `/story-done`, which squash-merges the PR and marks it Done.
+- **Commit hash + branch name.** The board is already at In-Progress (Gate 8). After your push, in
+  parallel: `auto-pr.yml` opens the PR; `ci.yml` runs build + test; on green `in-test.yml` moves the
+  board to In-Test. Give the user the issue link.
+- **In-Test pass** (Verification → Manual + every Edge Cases row). **local-simulator:** you launched
+  the app on the simulator right after the first push (§4) — the user visually verifies the checklist on
+  it *now*, in parallel with CI, then runs `/story-done` (push deferred fixes → green CI → squash-merge +
+  Done) — or reports a bug, which you fix on this branch, locally verify (affected checks only) and
+  relaunch on the simulator **without re-pushing** (the fix waits for `/story-done` to deliver it) for
+  another In-Test pass. **testflight:** they test the In-Test build on-device once Apple finishes
+  processing, then `/story-done`; a reported bug DOES re-push (CI rebuilds + re-uploads). (No launcher →
+  list the steps for the user to run themselves.)
 - Note any Gate 0 pre-existing changes, or if the feature DoD is now complete.
 
 ---
@@ -252,26 +344,27 @@ Concise summary:
 - **Touch Points are a whitelist; Non-Goals are hard walls.** Anything outside is forbidden.
 - **Spec is the contract.** `story-plan.md` is read-only (except the `**Status:**` line, set to In-Progress at Gate 8). Never amend ACs / Data Contracts / Observable Behavior / Verification to make code "fit" — if the spec is wrong, STOP and surface it.
 - **No invented analytics, state, or persistence** — Observable Behavior is the whitelist.
-- **Verification is proven mechanically** — every automated command passes and its literal final output line goes into the hand-off. No "tests later."
+- **Verification is proven mechanically** — the full `## Verification` suite passes on the merged logic, with literal output captured in the hand-off. Re-run only the checks a change can affect (build always; a test only if its inputs moved) — never skip the suite wholesale or let changed logic reach merge without a green local run behind it. No "tests later"; "don't re-run a test whose inputs didn't change" is not the same thing.
 - **Never skip the independent code-reviewer pass.**
-- **You mark In-Progress at the start; your terminal action is `git push`.** Beyond In-Progress you never move the board, open the PR, dispatch a workflow, or merge — GitHub Actions does. You're a story coder, not a release manager.
+- **Automated tests gate the commit; the human test is In-Test, after push.** Don't block the commit on a manual checklist — pushing only needs the automated commands green (+ review + DoD). The user's visual pass happens post-push, against the launched build. Testing fully before push makes In-Test redundant.
+- **You mark In-Progress at the start; your one remote action is the first `git push`.** That first push opens the PR and moves the board to In-Test. In local-simulator mode you then launch the app on the simulator (a local convenience), and any subsequent In-Test fix stays **local-only** — committed + relaunched, not re-pushed; those fixes reach the PR when the user runs `/story-done`. (testflight mode re-pushes each fix, because CI produces the device build.) Beyond that first push you never move the board, open the PR, dispatch a workflow, or merge. GitHub Actions does that; the merge is `/story-done`. You're a story coder, not a release manager.
 - **Never commit story code on `main`** — Gate 7 routes it through a feature branch.
 
 ---
 
 ## 7. Checklist (before hand-off)
 
-- [ ] Pre-flight gates 0–8 passed (incl. Gate 6 design reference for UI stories, Gate 7 feature branch, Gate 8 marked In-Progress in markdown + board, feature-analysis Draft→In-Progress)
+- [ ] Pre-flight gates 0–9 passed (incl. Gate 6 design reference for UI stories, Gate 7 feature branch, Gate 8 marked In-Progress in markdown + board, feature-analysis Draft→In-Progress, Gate 9 test-delivery asked if the project documents it)
 - [ ] `## Read First` loaded; plan confirmed (Phase A)
 - [ ] All Touch Points implemented; no out-of-scope files; Non-Goals respected
 - [ ] Data Contracts match exactly; Observable Behavior conformance (no extras, no missing)
-- [ ] Every automated Verification command passed; final output line captured
-- [ ] Manual Verification presented (Manual steps + every Edge Cases row)
+- [ ] Every automated Verification command passed (the commit gate); final output line captured — did NOT wait on a manual checklist before committing
+- [ ] After push: local-simulator → app launched on the simulator; In-Test checklist (Manual steps + every Edge Cases row) handed off as the user's pass (not blocked/looped on)
 - [ ] `story-plan.md` not edited except `**Status:**`; `docs/REFERENCES.md` updated if structural
 - [ ] `code-reviewer` Approve (after iterating on blocks); SwiftUI expert pass if applicable
 - [ ] Story DoD all checked
-- [ ] Committed on the feature branch (conventional message, `Closes #N` in body); branch pushed with upstream
-- [ ] STOPPED after push — no PR opened, no board move past In-Progress, no merge
+- [ ] Committed on the feature branch (conventional message, `Closes #N` in body, `Deliver:` trailer if Gate 9 applied); branch pushed with upstream
+- [ ] STOPPED after push (+ local sim launch in local-simulator mode) — no PR opened, no board move past In-Progress, no merge
 
 ---
 
@@ -281,5 +374,7 @@ Concise summary:
 - **"I'm confident, skip the reviewer"** is the single biggest agentic-coding failure mode — don't.
 - A small unrelated thing you spot mid-implementation → note it as a hand-off advisory; do NOT add it to this story's diff.
 - **Committing on `main`** — Gate 7 prevents it; if bypassed, move the diff to a feature branch (`git stash` → `git checkout -b feat/...` → `git stash pop`) before §4.
-- **Forgetting `Closes #N`** — CI opens the PR with `gh pr create --fill`, so the commit body IS the PR body. No `Closes #N` → no auto-close on merge → orphaned issue. Catch it at §4 step 2.
+- **Forgetting `Closes #N`** — `auto-pr.yml` carries the HEAD commit body into the PR body (it does NOT use `--fill`), so the commit body IS the PR body. No `Closes #N` → no auto-close on merge → orphaned issue. Catch it at §4 step 2.
 - **Opening the PR / moving the board to In-Test / merging yourself** — don't. You set In-Progress at Gate 8; after that GitHub Actions owns the PR + the In-Test move, and you never merge. The merge happens inside `/story-done` (the user's accept gate: verify CI green → squash-merge → board Done).
+- **Deferring the *first* push, or deferring in testflight mode** — don't. The deferred-push optimization is `local-simulator`-only and applies **only to In-Test fixes after** the first push. The first push must always happen (it opens the PR + moves the board to In-Test); in testflight mode every fix re-pushes (CI builds the device artifact). Only intermediate `local-simulator` fixes stay local.
+- **Skipping a test the change actually moved** — the per-change skip is "inputs didn't change," not "I'm in a hurry." If a fix touches logic/data/contracts (not just layout/copy), re-run its suite locally *before* handing back — in build-only-CI projects that local run is the only test execution that ever happens for these commits.

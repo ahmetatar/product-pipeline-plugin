@@ -82,7 +82,7 @@ In greenfield, use the exact Verified Commands recorded in `docs/REFERENCES.md` 
 
 **Automated:** (examples — replace with the actual stack)
 - Swift/SPM:      `swift test --filter OnboardingTests` · `swift build` · `swiftlint`
-- Swift/Xcode:    `xcodebuild test -scheme App -destination 'platform=iOS Simulator,name=iPhone 15'`
+- Swift/Xcode:    `xcodebuild test -scheme App -destination 'platform=iOS Simulator,name=iPhone 15' -parallel-testing-enabled NO`  (sequential — `-parallel-testing-enabled NO` avoids per-test-class simulator clones; keep the flag the architect recorded in REFERENCES.md)
 - Node/TS:        `npm test -- onboarding` · `tsc --noEmit` · `npm run lint`
 - Python:         `pytest tests/onboarding` · `mypy .` · `ruff check .`
 

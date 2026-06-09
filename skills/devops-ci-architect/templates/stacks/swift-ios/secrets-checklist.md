@@ -50,6 +50,11 @@ to TestFlight before moving the board; in `local-simulator` mode you install loc
 
 ## Initial setup (one-time, ~5 minutes)
 
+> **Fastest path:** `bash scripts/setup-testflight.sh` — it asks for every credential below step by
+> step, then in one pass creates the match repo, sets all 5 signing secrets, and runs `fastlane match`
+> (`fresh`/`nuke`/`skip`). Use it instead of the manual commands; the steps below are the reference if
+> you'd rather do it by hand or need to debug one piece.
+
 `devops-ci-architect` Phase F walks through these interactively. The steps below are the manual reference — useful if you skipped Phase F or want to understand exactly what the agent did.
 
 ### Step 1 — `MATCH_PASSWORD` (agent-generated, or your own)
