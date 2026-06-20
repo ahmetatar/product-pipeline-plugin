@@ -122,7 +122,7 @@ settings.json               — plugin settings
 |---|---|---|---|
 | `competitor-researcher` | One App Store competitor profile (parallel) | haiku | po-market-analyst |
 | `backlog-auditor` | Read the whole backlog once → schema/dup/dep/conflict report | inherit | po-product-intake |
-| `feature-drafter` | One feature's backlog detail block (parallel) | haiku | po-backlog |
+| `feature-drafter` | One feature's backlog detail block (parallel) | sonnet | po-backlog |
 | `codebase-scanner` | Brownfield recon + touch-points/contract drift audit | haiku | ba, dev |
 | `story-plan-writer` | One self-contained `story-plan.md` (parallel) | inherit | ba-feature-analyst |
 | `design-prompt-writer` | Claude-Design prompt for a UI story | sonnet | dev-story-implementer |

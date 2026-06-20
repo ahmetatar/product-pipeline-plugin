@@ -61,6 +61,11 @@ GET only, never write) so the JSON is parsed deterministically rather than summa
    commentary from the web is at most `[inferred]` context and must be labelled as such, never
    `[verified — itunes-rss]`.
 
+   **Report the corpus size.** Count the reviews you actually had to mine (RSS `feed.entry[]` length,
+   plus any listing reviews you read) and emit it in the `Review corpus` output line. This lets the
+   caller tell a genuinely small corpus (few themes is honest) from an under-researched run — so a
+   thin-but-honest profile is accepted and flagged, not re-run into padding.
+
 Then layer **WebSearch / WebFetch** on top for what the API does NOT give: paywall placement,
 trial length, marketing-claimed features, and broader sentiment beyond the latest 50 reviews.
 
@@ -110,6 +115,7 @@ Return a single markdown block, **under 400 words total**. No preamble, no sign-
 **Developer:** ... [verified — url]
 **App Store URL:** ...
 **Platform/locale checked:** iOS / US App Store
+**Review corpus:** N reviews available [verified — itunes-rss] (or `web-only — corpus size unknown`)
 **Disambiguation note (if any):** ...
 
 ### Identity & Pricing

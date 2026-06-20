@@ -40,6 +40,10 @@ draft conservatively from the stub and mark assumptions.
 
 ## Output format (STRICT — the block only, no preamble, under 200 words)
 
+The canonical detail-block shape is `templates/feature-backlog.md` → "Per-feature detail block" in
+the `po-backlog` skill. The fields below mirror it — if that template and this list ever diverge,
+the template wins; flag the mismatch in `Assumptions / thin-source` rather than guessing.
+
 ```markdown
 ### [Feature Name]
 - **Feature promise:** User can ... so that ...
@@ -47,11 +51,18 @@ draft conservatively from the stub and mark assumptions.
 - **Hard constraints:** ... (or `None.`)
 - **Open questions:** ... (or `None.`)
 - **Success signal:** ...
+
+_Assumptions / thin-source:_ <fields you drafted from the stub rather than the cited section because
+the citation was thin/missing, each named; or `none`>
 ```
 
+The `Assumptions / thin-source` line is NOT part of the block written to the backlog — it is a signal
+to the caller. Drop it from the final file; keep it in your return so `po-backlog` can act on it.
+
 ## Rules
-- **Ground in the report.** Tie promise/constraints to the cited sections where possible; mark
-  anything you assumed.
+- **Ground in the report.** Tie promise/constraints to the cited sections where possible; list
+  anything you drafted from the stub instead (thin/missing citation) in the `Assumptions /
+  thin-source` line — never silently fabricate a field the report doesn't support.
 - **No priority, no dependencies, no ID, no file writes.** That's the caller's job.
 - **No padding.** `None.` is a valid, preferred answer for empty constraints/questions.
 - **Tight output.** Under 200 words. The caller aggregates many blocks — every extra line costs context.

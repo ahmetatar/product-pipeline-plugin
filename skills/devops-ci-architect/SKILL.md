@@ -133,9 +133,12 @@ The required check name is the CI job's `name:` from the `ci.yml` you just wrote
 `Lint · Build · Test` / `Lint · Typecheck · Build · Test`). Because `ci.yml` also runs on push to
 `feat/**`, that check lands on the PR head commit, so the gate resolves without a `pull_request` run.
 
+The PUT returns the full branch-protection object on success — large and useless in context. Discard
+it and check the exit code; only surface output on failure.
+
 ```bash
 OWNER_REPO=$(gh repo view --json nameWithOwner -q .nameWithOwner)
-gh api -X PUT "repos/$OWNER_REPO/branches/main/protection" --input - <<JSON
+gh api -X PUT "repos/$OWNER_REPO/branches/main/protection" --input - >/dev/null <<JSON && echo "branch protection: enabled on main" || echo "branch protection: FAILED (likely no repo admin) — see E2"
 {
   "required_status_checks": { "strict": false, "contexts": ["<CI_CHECK_NAME>"] },
   "enforce_admins": false,

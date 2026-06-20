@@ -166,6 +166,14 @@ back to the project's configured default.
 
 ### Phase A — Plan & confirm
 Walk `## Touch Points`; one-line change summary per file. Pull the relevant Data Contract signatures.
+
+This per-file confirm is the always-on plan step — full harness **plan mode is NOT required for every
+story** (the `story-plan.md` is already the plan; BA did the cross-story reasoning). But if the story
+is large or ambiguous — many Touch Points, vague/locator-less `[MODIFY]`s, contracts that look stale
+against the repo, or scope you can't pin to specific files — recommend the user re-run under plan mode
+(OPUS+PLAN) before proceeding, rather than coding on a shaky read. Default: proceed; escalate only on
+genuine ambiguity.
+
 Present and wait for explicit `yes`:
 
 > Implementing **S-XX [Title]** (F-XXX):
@@ -224,8 +232,14 @@ command after every edit. A check's result only moves when its inputs move: a pu
   inputs didn't change," not "skip the gate."
 
 ### Phase E — Update REFERENCES.md
-If the story introduced a structural change (new dir/convention/command), update `docs/REFERENCES.md`
-— this should already be a Touch Point if the story was written correctly.
+Update `docs/REFERENCES.md` ONLY when the story introduced a genuinely new structural fact — a new
+top-level dir, a new convention, or a new verified command — and append it to the matching section
+(`## Folder Map` / `## Conventions` / `## Verified Commands`). This should already be a Touch Point
+(tagged `[MODIFY]`) if the story was written correctly.
+DO NOT touch `docs/REFERENCES.md` when the path you added simply follows the canonical Folder Map —
+it is already covered, and restating it pollutes the map and dilutes its value as a fast-lookup
+contract. Default to no edit; write only the structural delta, nothing about feature logic or story
+notes.
 
 ### Phase F — Independent review (delegated, never skip)
 Delegate a read-only review to `code-reviewer` on the **working tree** (before you commit):

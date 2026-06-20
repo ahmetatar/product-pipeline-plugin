@@ -36,16 +36,21 @@ prose and labels around them are translated; the keys themselves are not.
 
 **Read automatically (no need to ask):**
 - `docs/log.md` — **tail only** (`tail -n 15 docs/log.md 2>/dev/null`): recent pipeline activity. Use it to skip work already logged and resume where the previous skill left off; skip silently if absent.
-- `docs/feature_backlog.md` — existing features, priorities, personas, schema version
 - `CLAUDE.md` — product context, tech stack, target market
+
+**Do NOT read `docs/feature_backlog.md` into this conversation.** It is the largest file in play and
+loading it up front would defeat the Phase C delegation. Its content/schema/IDs are reached via the
+`backlog-auditor` subagent (Phase C), and the file itself is read only at write time (Phase F-pre/F)
+to produce the exact diff. Up front, only confirm it *exists* with a cheap check:
+`test -f docs/feature_backlog.md`.
 
 **From the user:**
 - Their idea, request, complaint, or observation — in any form, however rough
 
 Do not ask for structured input upfront. Let the user speak naturally first.
 
-If `docs/feature_backlog.md` does not exist: STOP. Refer the user to `po-market-analyst` →
-`po-backlog` to establish the backlog first.
+If `docs/feature_backlog.md` does not exist (the `test -f` above fails): STOP. Refer the user to
+`po-market-analyst` → `po-backlog` to establish the backlog first.
 
 ---
 
@@ -208,8 +213,10 @@ might want to adjust the detail block or split the change. Do NOT skip this gate
 
 After write confirmation:
 
-1. **Assign next Feature ID** — read existing IDs from the Feature Index, increment by 1
-   (skip `[REMOVED]` IDs; never reuse them).
+1. **Assign next Feature ID** — use the `Next Free ID` the `backlog-auditor` returned in Phase C,
+   re-validated against the Phase F-pre re-read (which catches any concurrent edit since the audit).
+   Do NOT re-derive it by re-scanning the whole file. (The auditor already skips `[REMOVED]` IDs and
+   never reuses them.)
 2. **Add to Feature Index table** with all required columns (use `[[F-XXX]]` wikilink syntax for the ID and `[[P1]]` etc. for personas, matching the po-backlog template convention):
    `| [[F-XXX]] | [Name] | [Category] | [Priority] | [[P1]] | [[F-YYY]] or — | [gap/parity/differentiator] | [source] |`
 3. **Write per-feature detail block** (po-backlog `templates/feature-backlog.md` detail-block format) in the per-feature

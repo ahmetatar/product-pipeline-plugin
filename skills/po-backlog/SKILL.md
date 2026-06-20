@@ -151,9 +151,15 @@ Agent({
 
 The drafter returns one detail block (Feature promise · Key data & integrations · Hard constraints ·
 Open questions · Success signal) in the `templates/feature-backlog.md` → "Per-feature detail block"
-shape. The agent enforces its own field rules and word budget — don't restate them in the prompt.
-Wait for all to return, then continue to Phase D. Spot-check each block against the report and fix
-any drift before assembling.
+shape, plus an `Assumptions / thin-source` signal line. The agent enforces its own field rules and
+word budget — don't restate them in the prompt. Wait for all to return, then continue to Phase D.
+
+**Act on `Assumptions / thin-source`.** A non-`none` line means the drafter populated a field from the
+stub because the cited section was too thin to support it — the agent correctly refused to fabricate.
+Do NOT silently assemble such a block: either re-cite a stronger report section and re-draft that one
+feature, or fold the gap into the feature's `Open questions` so BA resolves it before story authoring.
+Then spot-check each block against the report and fix any drift before assembling. (Strip the
+`Assumptions / thin-source` line itself — it is a signal, not backlog content.)
 
 ### Phase D — Prioritize & Sequence
 - Apply P0–P3 (Section 2). Each P0 gets one-sentence rationale citing the analysis.

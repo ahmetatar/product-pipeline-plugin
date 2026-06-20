@@ -40,7 +40,7 @@ not ask follow-up questions — the caller cannot answer mid-flight.
 
 ## What to audit
 
-Walk these five checks in order. For each, gather concrete evidence (file paths + line numbers
+Walk these six checks in order. For each, gather concrete evidence (file paths + line numbers
 when possible) before forming a judgment.
 
 ### Check 1 — Touch Points conformance
@@ -76,6 +76,18 @@ when possible) before forming a judgment.
   - Any raw value where a token should be used → **blocking**.
   - Token references should match the dotted spec name from `docs/design-system.md`, translated
     to the platform symbol per Section 2.2 of the design-foundation skill.
+
+### Check 6 — Edge Cases handling
+- Read the story's `## Edge Cases` table (Scenario → Expected Behavior). If the story has no such
+  table, skip this check (write `n/a — no Edge Cases table` for it).
+- For EACH row, find where the diff handles that scenario — the guard, branch, error path, empty
+  state, or validation that produces the Expected Behavior. Cite the line.
+- This is a **conformance** check, not freelance bug-hunting: you only audit the scenarios the spec
+  enumerated, not every theoretical failure. Stay inside the table.
+  - Scenario with NO corresponding handling in the diff → **blocking** (incomplete) if the story's
+    Touch Points clearly own that path; otherwise **advisory** (the handling may live in
+    already-implemented, out-of-diff code — say so and cite where you looked).
+  - Handling present but its behavior contradicts the Expected Behavior column → **blocking**.
 
 ---
 
@@ -121,6 +133,10 @@ Return a single markdown block, **under 600 words**. No preamble.
 ### Notes
 - Base ref used for diff: <ref or assumption>
 - Story `Verification` commands: NOT run by this review (caller's responsibility)
+- Test coverage signal: this review does NOT verify correctness — that rests on the story's
+  `Verification` tests. State what test files the diff adds/changes for this story (e.g.
+  `2 test files touched` or `no test changes in diff`) so the caller can judge whether correctness
+  is actually guarded. A spec-conformant diff with zero tests is a risk worth flagging, not a Block.
 - Anything ambiguous in the spec: list 1-line questions for the caller to resolve
 ```
 

@@ -29,11 +29,18 @@ As [[P1]] (or [[P2]] if backlog defines a second persona), I want to [action], s
 
 ## Touch Points
 List every file the coding agent will create or change. Tag with `[NEW] / [MODIFY] / [DELETE]`.
+Every `[MODIFY]` MUST carry a locator — the symbol/function/section to change, or a one-line "what
+changes" — so the agent edits in place without reading the whole file to find the spot. A bare
+`[MODIFY]` with no locator is incomplete.
 - `Sources/Features/Onboarding/WelcomeView.swift` [NEW]
-- `Sources/AppState.swift` [MODIFY — add `onboardingCompleted: Bool`]
+- `Sources/AppState.swift` [MODIFY — add `onboardingCompleted: Bool` to the persisted state struct]
 
 ## Read First
-Files/docs the coding agent MUST load into context before writing code.
+Files/docs the coding agent MUST load into context before writing code. Keep this list **minimal but
+sufficient**: list ONLY files needed to reuse a pattern, honor a convention, or satisfy a contract —
+each with a one-line reason. Do NOT restate Touch Points here (the agent reads those anyway), and do
+NOT pad with files that are merely "related." Under-listing forces the agent to grep; over-listing
+bloats its context — aim for the smallest set that prevents both.
 - `CLAUDE.md` — conventions
 - `docs/design-system.md` — tokens for spacing/color
 - `Sources/Features/Auth/AuthCoordinator.swift` — reuse coordinator pattern
@@ -93,6 +100,7 @@ In greenfield, use the exact Verified Commands recorded in `docs/REFERENCES.md` 
 ## Story Definition of Done
 - [ ] All ACs check-marked
 - [ ] All Touch Points implemented as specified
+- [ ] Every `## Edge Cases` row handled with its Expected Behavior (or `n/a` — no Edge Cases table)
 - [ ] `docs/REFERENCES.md` updated if any structural change was introduced
 - [ ] Lint, type check, and tests pass
 - [ ] Manual verification steps executed successfully

@@ -172,6 +172,9 @@ The agent enforces its own output format and word budget — don't restate them 
 - Paste the `Relevant Files` table into `feature-analysis.md` under `## Codebase Scan`.
 - Use the reported `Conventions` and `Verified Test Commands` when filling per-story
   `Read First` and `Verification` fields.
+- If `## Areas Not Covered` is non-empty (or the table ends with `… N more … omitted`), run a
+  targeted follow-up scan for those areas BEFORE story mapping — an incomplete reuse-target list is
+  what forces the coding agent to grep later. Don't proceed on a knowingly partial scan.
 
 ### Phase B – Feature-Level Contracts
 Before splitting into stories, define types/schemas shared across stories in a single
@@ -199,25 +202,37 @@ Agent({
   subagent_type: "story-plan-writer",
   prompt: "
     Story file path: docs/features/[F-XXX]-slug/stories/[S-NN]-slug/story-plan.md
-    Template: <this skill's templates/story-plan.md — pass its path or paste its content>
+    Template: <path to this skill's templates/story-plan.md — pass the PATH, not pasted content,
+               so N parallel calls don't each carry a copy>
     Feature-Level Contracts:
       <paste the contracts table from Phase B — stories reference these by name, never redefine>
     Project map (from docs/REFERENCES.md):
       Folder Map: <relevant folders>
       Verified Commands: <the build/test/lint commands this story's Verification will use>
-    This story:
+    This story (the writer is sealed — no Grep/Bash — so pass EVERYTHING its template sections need):
       s_id / slug / title / type
       depends_on: [...]
-      touch points: [paths tagged NEW/MODIFY/DELETE]
-      observable behavior / acceptance criteria: <from Phase C mapping>
       design: required|n/a   <from Phase C design-need mark>
+      touch points: [paths tagged NEW/MODIFY/DELETE; every [MODIFY] with its locator (symbol/section or one-line what-changes)]
+      acceptance criteria: <from Phase C mapping>
+      observable behavior: <state/events/persistence/must-NOT-emit, from Phase C mapping>
+      non-goals: <adjacent work this story must NOT do>
+      per-story data contracts: <any types/operations beyond Feature-Level, or 'none'>
+      edge cases: <Scenario → Expected Behavior rows, or 'none' if no input/network/persistence/state>
+      read first: <reuse/convention/contract files from the codebase scan + conventions, each with a one-line reason>
   "
 })
 ```
 
 Each subagent writes its file and returns a COMPACT summary (touch points, ACs, dependencies, which
-feature-DoD items it covers). The agent enforces its own template + output shape — don't restate them.
-Use those summaries for Phase E; only re-read a full file if a summary reveals a problem.
+feature-DoD items it covers, and a `missing-input` line). The agent enforces its own template +
+output shape — don't restate them. Use those summaries for Phase E; only re-read a full file if a
+summary reveals a problem.
+
+**Act on `missing-input`.** A non-`none` `missing-input` line means a template section was written as
+a sentinel because Phase C didn't supply its source material — the writer correctly refused to
+fabricate. Fill the gap in Phase C and re-issue that one story's call before proceeding; do NOT ship a
+story with a sentinel section a coding agent will later have to grep around to fill.
 
 ### Phase E – Cross-Story Review
 - Check for hidden dependencies missed in Phase C.
@@ -357,6 +372,9 @@ When you reach the file-writing step in Phase D, Read the corresponding template
 - Greenfield Data Contracts MUST be concrete language-agnostic tables (shape level, NOT code in any language); reference Feature-Level Contracts, never redefine.
 - `docs/REFERENCES.md` is the single source of truth for structure; never invent paths outside it.
   Brownfield: delegate scanning to `codebase-scanner` and verify cited paths with `ls` before Touch Points.
+- Touch Points exist to spare the coding agent from grepping: every `[MODIFY]` MUST carry a locator
+  (symbol/function/section or a one-line "what changes"), and `## Read First` MUST be minimal-but-
+  sufficient (only reuse/convention/contract files, each with a reason; never restating Touch Points).
 - GitHub sync (Phase F) is opt-in via `**GitHub Repo:**` + `**GitHub Project:**` in the backlog;
   absence = skip silently. Markdown is always source of truth.
 - Feature too large to story-map confidently → STOP and ask the user to narrow scope.
@@ -370,8 +388,8 @@ When you reach the file-writing step in Phase D, Read the corresponding template
 - [ ] `docs/REFERENCES.md` exists; every Touch Point path conforms to its folder map (or the story updates it)
 - [ ] Feature-Level Contracts defined; no story redefines them
 - [ ] Every story has ≥3 binary ACs
-- [ ] Every story has filled Touch Points (with `[NEW]/[MODIFY]/[DELETE]` tags)
-- [ ] Every story has Read First, Data Contracts, Observable Behavior, Verification, Non-Goals
+- [ ] Every story has filled Touch Points (with `[NEW]/[MODIFY]/[DELETE]` tags); every `[MODIFY]` has a locator
+- [ ] Every story has Read First (minimal-but-sufficient; no Touch Point restated), Data Contracts, Observable Behavior, Verification, Non-Goals
 - [ ] Every story with input/network/state has an Edge Cases table
 - [ ] Every story has explicit Blocking Assumptions (or `None.`)
 - [ ] All dependencies between stories are explicit; no branching/circular chains

@@ -110,7 +110,23 @@ for first-class types. Mark `CI/CD target: <none yet>`.
 ### Phase A — Detect & confirm project type
 - Read the report's `**Platform:**` line → propose it as the default type.
 - Detect manifests. If any exist → **brownfield**: do NOT scaffold over them. Document the
-  existing stack (Phase C becomes "detect + fill gaps", not "create").
+  existing stack (Phase C becomes "detect + fill gaps", not "create"). For the reconnaissance,
+  **delegate to `codebase-scanner`** instead of exploring the tree in this context — its recon
+  output (`Relevant Files` / `Conventions Observed` / `Verified Test Commands`) maps 1:1 to what
+  REFERENCES.md needs. (Greenfield: no scan — the repo is empty.) Call shape:
+  ```
+  Agent({
+    description: "Scan existing project for stack + structure",
+    subagent_type: "codebase-scanner",
+    prompt: "
+      Mode: recon
+      Project: [detected manifests / suspected stack, brownfield]
+      Scan topic: project foundation — folder layout, manifest/config files, conventions,
+                  and the build/test/lint/typecheck commands defined in manifests or CI.
+      Specific concerns: list every existing folder's role and every verifiable command + its source file.
+    "
+  })
+  ```
 - Present one confirmation:
   > Detected/assumed project type: **<type>** (from `market_analysis_report.md` Platform line).
   > Confirm, or pick: iOS app · Web SaaS · Shopify app · other (describe).
@@ -142,9 +158,15 @@ Read the matching template (Section 3). Then:
 7. Commit the scaffold: `git add -A && git commit -m "chore: scaffold <type> foundation"`.
 
 **Brownfield:**
-- Do NOT re-init or overwrite. Map the existing folders to the canonical roles; note divergences.
+- Do NOT re-init or overwrite. Using the `codebase-scanner` findings from Phase A, map
+  the existing folders to the canonical roles; note divergences. If the scan flagged
+  `## Areas Not Covered` (or omitted files), run a targeted follow-up before documenting — a partial
+  map leaves REFERENCES.md incomplete.
 - Only add missing tooling (e.g. a linter) if the user agrees. The goal is to *document* truth,
   not to restructure a working project.
+- **Phase D still runs the verify commands yourself.** The scanner only reports commands it saw
+  *defined* in manifests; it does not execute them. Candidate commands from the scan are unverified
+  until Phase D actually runs them — never copy a scanner-reported command into REFERENCES.md unrun.
 
 ### Phase D — Verify commands (mandatory; mechanical proof — no self-attestation)
 Run the type's build / test / lint / typecheck commands and confirm each at least **invokes**

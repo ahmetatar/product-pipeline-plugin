@@ -51,13 +51,29 @@ If any required field is missing, do your best with what's given. Do not ask fol
 5. **Risks or surprises** — anything that would trip up a downstream agent: inconsistent
    patterns, deprecated code paths, tightly coupled modules, missing test setup.
 
-### Output format (STRICT — under 250 words)
+### Output format
+
+Be tight by default — the caller's context window is precious — but **completeness of reuse targets
+overrides brevity**. This output feeds the caller's per-story `Read First`; a reusable file you drop
+to save words becomes a file the coding agent has to grep for later. So:
+
+- **Never silently truncate the `Relevant Files` table.** List every file that is a genuine reuse
+  target (has a reusable pattern, or the story will almost certainly read/modify it). Only
+  *lower-relevance* "merely related" files may be dropped — and if you drop any, end the table with a
+  final row `… N more lower-relevance files omitted` so the caller knows the cut happened.
+- **`Conventions`, `Verified Test Commands`, and `Risks` stay terse** — a few lines each. The word
+  economy lives here, not in the reuse-target list.
+- **Flag your own blind spots.** If the scan topic or your keyword coverage left areas unprobed
+  (a subsystem you didn't reach, an ambiguous term, a pattern you suspect exists but couldn't
+  confirm), say so in `## Areas Not Covered` so the caller can run a follow-up scan. Silence implies
+  "I covered everything" — only imply that when it's true.
 
 ```markdown
 ## Relevant Files
 | Path | Purpose (one line) | Reusable pattern? |
 |---|---|---|
 | ... | ... | yes/no — pattern name |
+| … N more lower-relevance files omitted |  |  |   ← only if you actually dropped some
 
 ## Conventions Observed
 - Folder layout: ...
@@ -72,6 +88,9 @@ If any required field is missing, do your best with what's given. Do not ask fol
 
 ## Risks / Surprises
 - ... (or `None.`)
+
+## Areas Not Covered
+- ... (subsystems/terms left unprobed, or `None — topic fully covered.`)
 ```
 
 ---
@@ -132,8 +151,11 @@ The `Verdict` line is the caller's primary signal — emit one of those two lite
   Do not invent paths from memory or convention.
 - **Verify test commands.** A command goes in `Verified Test Commands` only if you opened the
   manifest/script file and saw it. Otherwise omit it.
-- **Tight output.** Under 250 words. The caller's context window is precious — every extra
-  sentence costs them story-writing quality.
+- **Tight output, but never at the cost of a reuse target.** Default to terse prose — the caller's
+  context window is precious. `touch-points-audit` output stays under 250 words (its size is bounded
+  by the input path list). `recon` has no hard word cap: keep everything terse EXCEPT the
+  `Relevant Files` reuse-target list, which must be complete (see recon output rules). Spend words on
+  reuse targets, not on commentary.
 - **No plans, no design opinions, no recommendations.** You report what *is*, not what
   *should be*. If you find yourself writing "we should…" or "consider…", stop and delete it.
   The caller does the thinking.

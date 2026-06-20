@@ -76,15 +76,21 @@ Agent({
   description: "Scan existing UI for visual tokens in use",
   subagent_type: "codebase-scanner",
   prompt: "
-    Project: [tech stack from CLAUDE.md]
-    Topic: existing visual tokens — colors (hex/named), fonts (family/size/weight),
-           spacing values, corner radii, shadow definitions.
-    Focus: list every hardcoded value and every existing tokens/theme file.
+    Mode: recon
+    Project: [tech stack from CLAUDE.md, brownfield]
+    Scan topic: existing visual tokens — colors (hex/named), fonts (family/size/weight),
+                spacing values, corner radii, shadow definitions.
+    Specific concerns: list every hardcoded value and every existing tokens/theme file.
   "
 })
 ````
 
-Paste the scanner's findings into a working note; use it in Phase A.
+Paste the scanner's findings into a working note; use them in Section 4 onward. **Act on an
+incomplete scan:** if the scanner's `## Areas Not Covered` is non-empty (or its `Relevant Files`
+table ends with `… N more … omitted`), run a targeted follow-up scan for those areas before
+authoring tokens — the whole point of the brownfield scan is to reuse values already in the codebase
+(Section 4), so a partial scan risks inventing a token that conflicts with existing code. Do NOT
+derive tokens on a knowingly partial scan.
 
 ### 2.4 — When the scanner returns inconsistent tokens
 
@@ -291,7 +297,7 @@ Templates live as sibling files of this SKILL.md — read at write-time only, NO
 
 ### 8.1 — `docs/design-system.md`
 
-→ apply `templates/design-system.md`. Read it once at the end of Phase F (or when you start writing the file), substitute every bracketed placeholder, fill the Contrast Derivation table with computed values from Section 7.
+→ apply `templates/design-system.md`. Read it once when you start writing the file (after Section 7's contrast computation), substitute every bracketed placeholder, fill the Contrast Derivation table with computed values from Section 7.
 
 ### 8.2 — Platform Tokens File
 

@@ -119,9 +119,17 @@ not restate the agent's output format/evidence tagging in the prompt; it enforce
 After all profiles return:
 - Drop any app the subagent could not resolve (note in the report's appendix).
 - Verify all source URLs are well-formed before citing in the final report.
-- **Profile validation gate**: if a returned profile has fewer than 2 negative themes, or zero
-  source URLs, re-run that competitor before accepting it. Thin profiles poison the §5 frequency
-  counts and §4 matrix downstream.
+- **Profile validation gate**: a profile with **zero source URLs** is a failed research run — re-run
+  it (the iTunes path always yields at least `trackViewUrl`, so zero sources means the run broke).
+  For **fewer than 2 negative themes**, distinguish two cases using the profile's `Review corpus`
+  signal:
+  - *Under-researched* (corpus has reviews but the researcher surfaced few themes) → re-run **once**.
+  - *Genuinely thin corpus* (the researcher reports a small `Review corpus: N`, so there simply
+    aren't ≤2★ reviews to mine) → **accept the profile and flag it in §12** as a thin-corpus app;
+    do NOT re-run again and do NOT drop it silently. Re-running cannot conjure reviews that don't
+    exist, and pressuring a re-run only invites padding — which the researcher is forbidden to do.
+  Note in §5 that any thin-corpus app contributes lower-confidence frequency counts. Cap negative-
+  theme re-runs at one; never loop.
 - Synthesize across profiles — that synthesis is YOUR job, not the subagent's.
 
 ---
