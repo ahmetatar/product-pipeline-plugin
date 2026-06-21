@@ -48,6 +48,19 @@ In-Progress, dispatch workflows, or merge. (`docs/CI.md` describes the pipeline 
 
 If `story-plan.md` doesn't exist: STOP. Refer the user to `ba-feature-analyst`.
 
+**Read efficiently — full COVERAGE is mandatory, whole-FILE reads are not.** Every file listed above
+(Read First + every Touch Point) must be understood before Phase B: that coverage is the hallucination
+guard and it does NOT relax. What relaxes is *how* you read a LARGE file (≳250 lines). When the story
+hands you a precise locator — a `[MODIFY]` naming a symbol/section, a Data Contract signature, a Read
+First pointer to "the X function" — locate that region first (`Grep`/`Glob` the named symbol, or an
+`Explore` map) and read the span with `offset`/`limit` plus enough surrounding context to edit safely,
+instead of pulling the whole file into context. Then `Grep` that same file for **every** reference to
+the symbols you will change, so no call site is missed. Read the file in FULL whenever any of these
+holds: it is small (≲250 lines), the Touch Point is `[NEW]` or a whole-file rewrite, the locator is
+vague or absent, or the file defines a Data Contract you must match byte-for-byte. When in doubt, read
+more — a missed call site is a wrong edit, and no token budget is worth a hallucinated API. This trims
+context without ever reading less of what matters.
+
 ---
 
 ## 2. Pre-flight gates (ALL must pass before any code)
@@ -187,7 +200,11 @@ Present and wait for explicit `yes`:
 - Follow each Data Contract signature exactly (name, params, return, schema). Drift cascades.
 - Translate design tokens from the dotted spec name to the platform symbol (per `pd-design-foundation` §2.2): SwiftUI `color.primary`→`AppColor.primary`; CSS→`var(--color-primary)`.
 - If `<story>/design/` holds a Claude Design output, use its HTML/CSS + component structure as the visual + structural target. Web: it maps near-directly to components. iOS/Shopify: visual reference — rebuild natively. Always bind to the repo tokens (source of truth); if the export uses a token not in our system, surface it (offer to add via `pd-design-foundation`) instead of copying it.
+- **UI quality bar (UI stories).** Aim past "functionally working" to a premium, HIG-grade screen built from the project's **own** design signature (its gradient/mono/glow/brand tokens), not generic chrome; reach for shared design-system components over hand-rolled chrome, and use progressive disclosure (scannable summary rows + a one-open-at-a-time accordion) when a screen stacks many repeated complex items. Then **self-verify VISUALLY before claiming done** — capture a real screenshot of the screen and look at it, not just a green build (snapshot technique is stack-specific; for iOS see `docs/ios-swiftui-gotchas.md`).
 - Stay strictly within Touch Points + Non-Goals — anything outside is forbidden.
+- Edit precisely: before changing any symbol you have already `Grep`ped its references in that file (§1
+  *Read efficiently*) — update every call site the change reaches; a targeted read never excuses a
+  missed usage.
 - If the story is wrong/incomplete: STOP and report; don't paper over it.
 
 ### Phase C — Observable Behavior conformance (mechanical)
