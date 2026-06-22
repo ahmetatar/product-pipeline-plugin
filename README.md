@@ -75,6 +75,8 @@ flowchart TD
 
 Repeat steps 5–6 per feature. That's the core loop. Add an idea anytime with **po-product-intake** (*"I want to add a referral feature"*).
 
+**Implement several stories at once** with **start-team** (*"start team on F-002"*). It delegates to the **`team-planner`** subagent to find the largest set of a feature's stories that is safe to run together — mutually isolated (no shared file, no shared not-yet-built contract, no dependency between them) *and* autonomy-safe (nothing that needs a human mid-run). You approve the proposed wave, then it fans out one **dev-story-implementer** (in headless *team mode*) per story, each in its own git worktree + feat branch. Every story still goes through verification → independent review → its own PR → CI gate → In-Test; nothing is merged for you — acceptance stays per-story via **/story-done**.
+
 ---
 
 ## What happens after `dev-story-implementer` pushes
@@ -110,8 +112,8 @@ For web, the bundle maps near-directly to components; for iOS/Shopify it's a vis
 
 ```
 .claude-plugin/plugin.json   — plugin manifest
-skills/                      — 8 pipeline skills (one SKILL.md + templates each)
-agents/                     — 9 purpose-built subagents (read-only or single-job)
+skills/                      — 9 pipeline skills (one SKILL.md + templates each)
+agents/                     — 10 purpose-built subagents (read-only or single-job)
 commands/                   — 5 slash commands (/founder-brief, /board-init, /story-start|test|done)
 settings.json               — plugin settings
 ```
@@ -129,6 +131,7 @@ settings.json               — plugin settings
 | `code-reviewer` | Independent post-implementation review | sonnet | dev-story-implementer |
 | `github-projects-helper` | Project v2 field/status reads + one status mutation | haiku | ba, dev, commands |
 | `story-publisher` | Batch-publish a feature's stories as Issues | haiku | ba-feature-analyst |
+| `team-planner` | Read a feature's stories once → a conflict-free, autonomy-safe parallel wave | inherit | start-team |
 
 Adding a project type is a **drop-in directory** — no skill edits:
 - a CI/CD stack → `skills/devops-ci-architect/templates/stacks/<id>/` (see its `new-stack/HOWTO.md`)
@@ -195,6 +198,7 @@ Subagents pin their own model in frontmatter (above). The guidance below is for 
 | **pd-design-foundation** | 🔵 OPUS | Design system + tokens; all UI depends on it. |
 | **ba-feature-analyst** | 🔵 OPUS | Story decomposition + contracts; coding agents follow it blindly. |
 | **dev-story-implementer** | 🔵 OPUS* | Writes real code against a tight spec. *Bump to OPUS+PLAN for large/ambiguous stories. |
+| **start-team** | 🔵 OPUS | Orchestrates a parallel wave of implementers; the isolation/approval judgment is high-stakes (a bad call = merge conflicts). |
 | **po-product-intake** | 🔵 OPUS (borderline) | Dedup + priority placement; schema-constrained enough to drop to SONNET if you prefer. |
 | **devops-ci-architect** | 🟢 SONNET | Assembles workflows from manifest-driven template sets. |
 | **/board-init**, **/story-start**, **/story-test**, **/story-done** | 🟢 SONNET | Fixed-recipe board transitions. |

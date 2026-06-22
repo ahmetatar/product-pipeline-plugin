@@ -32,6 +32,53 @@ In-Progress, dispatch workflows, or merge. (`docs/CI.md` describes the pipeline 
 
 ---
 
+## 0. Team / unattended mode (override layer — active ONLY when invoked this way)
+
+`start-team` may invoke you in **team mode**: one story of a batch that runs in parallel with sibling
+stories, each in its own git worktree, with no human in the loop. The wave was vetted by the
+`team-planner` agent (mutually isolated + autonomy-safe) and approved by the user at launch. When your
+prompt says **team mode**, every gate and phase below STILL runs — with these overrides, and ONLY
+these. Everything about correctness is unchanged.
+
+- **No human in the loop.** You cannot ask anything. The user's wave approval IS your Phase A
+  confirmation — skip the "Proceed? (yes/…)" wait. Any gate that would STOP-and-ask instead **aborts
+  and returns the structured outcome** (below) with a `reason` — never hang waiting for input.
+- **Pre-decided inputs (in your prompt).** `Deliver:` (Gate 9) and design status are decided up front
+  — use them, never re-ask. The planner already dropped any story that needed an interactive choice,
+  so if you nonetheless hit a missing design (Gate 6), an unresolved Blocking Assumption (Gate 2), or
+  a not-`Done` dependency (Gate 3), that is a real defect: **abort+report**, don't prompt.
+- **Centralized bookkeeping (prevents N branches colliding on shared files).**
+  - `feature-analysis.md` Draft→In-Progress flip (Gate 8): do it ONLY if your prompt names you the
+    **bookkeeping lead**; otherwise skip it (another story owns it).
+  - `docs/REFERENCES.md` (Phase E): **do NOT write it.** Return any structural delta as
+    `referencesDelta` in your outcome; `start-team` applies all deltas once, post-wave.
+- **No simulator launch, no In-Test checklist (§4).** N parallel simulators is unworkable. Do the
+  first `git push` (it opens the PR + moves the board to In-Test as always), then **return** — do not
+  launch the app and do not present/await a manual checklist. The user runs In-Test per story after
+  the wave; `start-team` hands that off.
+- **Runtime-device isolation (verification that boots a device).** A simulator/emulator/hardware
+  device is a *shared global resource* — worktrees isolate files, not the booted device. If your
+  `## Verification` boots one (e.g. `xcodebuild test -destination`, an instrumented/Espresso emulator
+  run, any UI test that boots a runner — NOT a headless unit run like `swift test`/`pytest`/`go test`),
+  **never run it against the shared default device**; a sibling agent may hold it and you'd collide on
+  boot/port/state. Use a **story-unique device** keyed to your branch — clone or a uniquely-named/UDID
+  device via the project's documented launcher (e.g. `scripts/run-on-sim.sh <unique-udid>`) — and
+  **tear it down** when verification finishes. If the project documents no per-agent device
+  provisioning, the planner guaranteed you are the *only* device-booting story in this wave, so the
+  default device is yours alone — use it normally. Either way the full `## Verification` gate is
+  unchanged; never downgrade it to skip a device-booting test just to avoid the shared device.
+- **Structured outcome = your return value:** `{ sid, result: 'pushed'|'aborted'|'failed', branch,
+  commit, issue, verification: [{cmd, lastLine}], review: 'approve'|'advisories', referencesDelta|null,
+  reason }`. `pushed` = committed + pushed; `aborted` = a gate stopped you (give the reason);
+  `failed` = verification/review couldn't be made to pass.
+
+Team mode relaxes **interactivity** and **centralizes bookkeeping**. It never relaxes the Touch
+Points whitelist, Data Contracts, Observable Behavior conformance, the full Verification gate, the
+independent code-review (never skipped), or the DoD. (Solo mode — a direct user invocation — ignores
+this whole section.)
+
+---
+
 ## 1. Inputs
 
 **The user provides:** a story reference (`F-XXX/S-XX`, or a path to a `story-plan.md`).
@@ -146,6 +193,7 @@ starts from an up-to-date `main`** — never stacked on another story's branch.
 - **Open the feature.** Read `docs/features/F-XXX-*/feature-analysis.md`'s header `**Status:**`. If it's
   `Draft`, set it to `In-Progress` (the first story to start opens the feature). Already `In-Progress`
   or `Done` → leave it untouched. This edit commits with the code on the feat branch.
+  *(Team mode: do this ONLY if you are the bookkeeping lead — see §0.)*
 - If `**GitHub Issue:**` is in the story header AND `gh auth status` succeeds, move the board to
   In-Progress with your own gh credentials and assign yourself. Delegate to `github-projects-helper`:
   ```
@@ -249,6 +297,8 @@ command after every edit. A check's result only moves when its inputs move: a pu
   inputs didn't change," not "skip the gate."
 
 ### Phase E — Update REFERENCES.md
+*(Team mode: do NOT write this file — return the structural delta as `referencesDelta` so `start-team`
+applies all deltas once; see §0.)*
 Update `docs/REFERENCES.md` ONLY when the story introduced a genuinely new structural fact — a new
 top-level dir, a new convention, or a new verified command — and append it to the matching section
 (`## Folder Map` / `## Conventions` / `## Verified Commands`). This should already be a Touch Point
@@ -306,7 +356,9 @@ which begins after this push.
    line entirely when Gate 9 didn't apply or the user skipped.
 3. Push with upstream: `git push -u origin "$(git branch --show-current)"`.
    - No git remote → stop here; the work is committed locally. Hand-off notes "no remote — push is the user's job."
-4. **Launch for In-Test — local-simulator only, don't wait for CI.** The push fires CI + the In-Test
+4. **Launch for In-Test — local-simulator only, don't wait for CI.** *(Team mode: skip this launch
+   AND the In-Test checklist below — push, then return your outcome; the user runs In-Test per story
+   after the wave. See §0.)* The push fires CI + the In-Test
    board move in the cloud; *in parallel*, if Gate 9 resolved to `local-simulator` and a local launcher
    exists (`scripts/run-on-sim.sh`), run it now to build + install + launch the app on the simulator.
    This is the build the user visually tests during In-Test — no Xcode, no script for them to type.
