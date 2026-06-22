@@ -8,7 +8,7 @@
     {
       "name": "product-pipeline",
       "source": "./",
-      "description": "Idea → shipped, reviewed code: 8 pipeline skills + 9 subagents + 5 commands, with per-stack CI/CD (iOS / Shopify / web SaaS) and Claude Design integration."
+      "description": "Idea → shipped, reviewed code: 9 pipeline skills + 10 subagents + 5 commands, with per-stack CI/CD (iOS / Shopify / web SaaS), parallel story execution, and Claude Design integration."
     }
   ]
 }
