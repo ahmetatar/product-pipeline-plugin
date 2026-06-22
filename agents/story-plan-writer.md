@@ -50,7 +50,11 @@ Do not ask follow-up questions — the caller cannot answer mid-flight.
 ## What to produce
 A complete `story-plan.md` per the template, self-contained: a coding agent should need nothing
 beyond this file + the repo. Every Touch Point path must come from the provided project map or the
-story mapping — do not invent paths. Verification commands must be the provided Verified Commands.
+story mapping — do not invent paths. Verification commands must be the provided Verified Commands —
+but **scope the Test command to this story**: keep Build/Lint and the fast unit suite full, and narrow
+any slow device/UI runner to this story's own target/suite with the stack's selector (e.g. xcodebuild
+`-only-testing:<UITarget>/<StorySuite>`). The full unscoped suite is the merge gate, not the per-story
+command. Don't invent commands — derive the scoped form from the provided ones (same scheme/destination).
 Reference Feature-Level Contracts by name. Do not duplicate other stories' work. In `## Design
 References`, set `**Design:**` to the given design need and leave `**Claude Design output:** —` (the
 implementer/user fills it once a design exists).

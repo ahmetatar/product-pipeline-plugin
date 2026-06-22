@@ -367,6 +367,16 @@ When you reach the file-writing step in Phase D, Read the corresponding template
   user input, network, persistence, or state.
 - Every story has filled Touch Points and Verification (empty = skill failure). Verification commands
   come from the project's actual stack (`docs/REFERENCES.md` Verified Commands) — never placeholders.
+- **Scope the per-story Test command — never re-run the whole UI/integration suite per story.** Build
+  and Lint stay full, but the **Test** command runs the project's fast unit/logic suite in full (the
+  cross-story regression net) while scoping any slow *device-booting* runner (iOS UI tests, Espresso,
+  browser E2E) to *this story's own* suite via the stack's narrow selector (xcodebuild
+  `-only-testing:<UITarget>/<StorySuite>`, `pytest path::test`, `playwright <spec>`). Re-running the
+  entire UI target on every story is the pipeline's main time sink and adds no per-story signal — the
+  full unscoped run belongs to the merge gate (CI, or a single pre-merge pass where CI is build-only),
+  not to each story's local gate. If `docs/REFERENCES.md` documents only an unscoped `test` command,
+  derive the scoped form from it (same scheme/destination + `-only-testing:` for this story's target);
+  never invent a new command.
 - Observable Behavior is mandatory on every story that changes state, persists data, or emits events.
   "It's implied" is not acceptable.
 - Greenfield Data Contracts MUST be concrete language-agnostic tables (shape level, NOT code in any language); reference Feature-Level Contracts, never redefine.
