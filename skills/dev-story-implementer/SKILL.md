@@ -102,11 +102,23 @@ hands you a precise locator — a `[MODIFY]` naming a symbol/section, a Data Con
 First pointer to "the X function" — locate that region first (`Grep`/`Glob` the named symbol, or an
 `Explore` map) and read the span with `offset`/`limit` plus enough surrounding context to edit safely,
 instead of pulling the whole file into context. Then `Grep` that same file for **every** reference to
-the symbols you will change, so no call site is missed. Read the file in FULL whenever any of these
-holds: it is small (≲250 lines), the Touch Point is `[NEW]` or a whole-file rewrite, the locator is
-vague or absent, or the file defines a Data Contract you must match byte-for-byte. When in doubt, read
-more — a missed call site is a wrong edit, and no token budget is worth a hallucinated API. This trims
-context without ever reading less of what matters.
+the symbols you will change, so no call site is missed. **This locate-then-read applies to Read First
+reference files too, not only `[MODIFY]` Touch Points** — a reference pointer like "how X is presented"
+or "the downscale pattern" on a LARGE file is a cue to `Grep`/`Explore` for that specific region and
+read THAT span, NOT a license to pull all 600 lines into context. A vague-or-absent locator on a large
+file means *run a locate pass first*, not *read it whole* — the most common self-inflicted context burn
+is treating "the story didn't hand me a line number" as permission for a full read. **Targeted reading
+is inherently completeness-riskier than a full read, and the failure mode is an incomplete locate pass,
+not the tool** — so on a *reference* file (where there is no symbol you're changing to grep call-sites
+against) the locate pass must enumerate EVERY concern the story needs from it and locate each — the
+fields shown, the nil-omission rule, the formatting helpers — not stop at the first match. You are
+dropping the *irrelevant* bulk (an unrelated animation, a photo-downsample path), never the *relevant*
+logic; if you cannot cleanly separate the two, that IS a locate pass that can't bound the region →
+full-read. Read the file in
+FULL only when: it is small (≲250 lines), the Touch Point is `[NEW]` or a whole-file rewrite, the file
+defines a Data Contract you must match byte-for-byte, or a `Grep`/`Explore` locate pass genuinely
+can't bound the region. When in doubt, read more — a missed call site is a wrong edit, and no token
+budget is worth a hallucinated API. This trims context without ever reading less of what matters.
 
 ---
 
@@ -461,3 +473,8 @@ Concise summary:
 - **Opening the PR / moving the board to In-Test / merging yourself** — don't. You set In-Progress at Gate 8; after that GitHub Actions owns the PR + the In-Test move, and you never merge. The merge happens inside `/story-done` (the user's accept gate: verify CI green → squash-merge → board Done).
 - **Deferring the *first* push, or deferring in testflight mode** — don't. The deferred-push optimization is `local-simulator`-only and applies **only to In-Test fixes after** the first push. The first push must always happen (it opens the PR + moves the board to In-Test); in testflight mode every fix re-pushes (CI builds the device artifact). Only intermediate `local-simulator` fixes stay local.
 - **Skipping a test the change actually moved** — the per-change skip is "inputs didn't change," not "I'm in a hurry." If a fix touches logic/data/contracts (not just layout/copy), re-run its suite locally *before* handing back — in build-only-CI projects that local run is the only test execution that ever happens for these commits.
+- **Burning slow build cycles on trivial, foreseeable errors** — on a slow toolchain (iOS `xcodebuild`, large native builds) every failed compile costs 30–60 s+, and the compiler surfaces errors one batch at a time, so "fix one, rebuild, fix the next" serializes minutes of waiting. Two habits kill this:
+  - **Front-load imports when authoring a NEW file** — before the first build, add every module the file's symbols require, stack-aware: e.g. for SwiftUI/iOS, `LocalizedStringKey`/`View` → `import SwiftUI`; `@Model`/`.modelContainer` (incl. in a `#Preview`) → `import SwiftData`; `UIGraphics*`/`UIActivityViewController`/`UIPrintPageRenderer` → `import UIKit`. The same anticipation applies on any stack (a type's defining module is a foreseeable import, not a build-discovered surprise).
+  - **Batch-fix, then rebuild** — when a build fails, scan the whole file (and its siblings in the diff) for the *entire class* of the reported error — every missing import, every actor-isolation mismatch, every renamed symbol — and fix them all in one pass before re-running. Don't re-trigger a slow build to surface the next single foreseeable error.
+- **Trusting the editor's live diagnostics over the build** — an in-editor indexer (SourceKit/LSP) often reports `No such module 'X'` or `Cannot find type 'Y' in scope` for same-target or SDK symbols it hasn't resolved; these are index-state false positives, not real errors. Don't chase them, and don't let them mask the *real* compile errors that only the authoritative build/test command reveals. The build command is ground truth.
+- **Re-serializing a programmatic edit to a structured data/config file** (JSON/YAML/string-catalog/lockfile) — when a script rewrites such a file, it can silently reorder keys, drop the trailing newline, or change quoting/separators, turning a 14-line addition into a whole-file diff. Preserve existing key order (append, don't sort), keep the trailing newline, match the file's existing separator/indent style, and **verify the diff is minimal (pure additions where you intended additions) before moving on** — a churned config diff buries the real change and trips reviewers and CI diff checks.
